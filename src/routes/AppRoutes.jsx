@@ -7,6 +7,7 @@ import CreateMeeting from "../pages/CreateMeeting";
 import JoinMeeting from "../pages/JoinMeeting";
 import MainLayout from "../components/layout/MainLayout";
 import ProtectedRoute from "./ProtectedRoute";
+import VerifyOtp from "../pages/Auth/VerifyOtp";
 
 export default function AppRoutes() {
   return (
@@ -14,6 +15,7 @@ export default function AppRoutes() {
       {/* Public */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/verify-otp" element={<VerifyOtp />} />
 
       {/* Protected */}
       <Route element={<ProtectedRoute />}>
