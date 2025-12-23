@@ -28,6 +28,12 @@ export const leaveMeetingRoom = ({ meetingId, userId }) => {
   socket.emit("leave-meeting", { meetingId, userId });
 };
 
+export const endMeeting = ({ meetingId }) => {
+  socket.emit("end-meeting", {
+    meetingId,
+  });
+};
+
 /* ---------- LISTENERS ---------- */
 
 export const onUserJoined = (cb) => {
