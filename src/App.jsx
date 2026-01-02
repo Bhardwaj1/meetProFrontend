@@ -4,14 +4,23 @@ import { Toaster } from "sonner";
 import { useGlobalLoading } from "./store/selectors/useGlobalLoading";
 import Loader from "./components/common/Loader";
 import { useEffect } from "react";
-import { connectSocket } from "./socket/socketEvents";
+import { connectSocket, disconnectSocket } from "./socket/socketEvents";
+import { useAuth } from "./context/AuthContext";
 
 export default function App() {
   const isLoading = useGlobalLoading();
 
+  const { user } = useAuth();
+
   useEffect(() => {
-    connectSocket(); // 🔌 connect once for entire app
-  }, []);
+    if (user) {
+      connectSocket();
+    }
+
+    return () => {
+      disconnectSocket();
+    };
+  }, [user]);
 
   return (
     <BrowserRouter>

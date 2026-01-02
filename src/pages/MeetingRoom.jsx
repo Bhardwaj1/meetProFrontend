@@ -1,35 +1,29 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import socket from "../socket/socket";
-import { useSelector, useDispatch } from "react-redux";
+import { useSelector } from "react-redux";
 import { useAuth } from "../context/AuthContext";
 import { useMeeting } from "../context/MeetingContext";
 
 import {
-  joinMeetingRoom,
-  onUserJoined,
-  onUserLeft,
-  offMeetingListeners,
-  onSocketConnected,
-  onUserMuted,
-  onUserUnmuted,
-  hostMuteUser,
-  hostUnmuteUser,
   connectSocket,
   disconnectSocket,
+  hostMuteUser,
+  hostUnmuteUser,
 } from "../socket/socketEvents";
 
-import { fetchMeetingDetails } from "../store/slices/meetingSlice";
 import VideoTile from "../components/meeting/VideoTile";
 import Controls from "../components/meeting/Controls";
 
-let hasJoinedMeeting = false;
-
 export default function MeetingRoom() {
-  const dispatch = useDispatch();
   const { meetingId } = useSelector((state) => state.meeting);
-  const { user } = useAuth();
+  const { user } = useAuth(); // { id, name, email }
   const { participants, setParticipants } = useMeeting();
 
+  const hasJoinedRef = useRef(false);
+
+  /* ================================
+     0️⃣ SOCKET CONNECT / DISCONNECT
+  ================================ */
   useEffect(() => {
     connectSocket();
     return () => {
@@ -38,47 +32,61 @@ export default function MeetingRoom() {
   }, []);
 
   /* ================================
-     1️⃣ LOAD PARTICIPANTS (REST)
+     1️⃣ JOIN MEETING (ONLY ONCE)
   ================================ */
   useEffect(() => {
-    if (!meetingId || !user) return;
+    if (!meetingId || !user || hasJoinedRef.current) return;
 
-    dispatch(fetchMeetingDetails(meetingId))
-      .unwrap()
-      .then((res) => {
-        setParticipants(
-          res.participants.map((p) => ({
-            id: p.id,
-            name: p.name,
-            isMuted: p.isMuted,
-            isMe: p.id === user.id,
-          }))
-        );
-      });
-  }, [meetingId, user, dispatch, setParticipants]);
+    hasJoinedRef.current = true;
+    socket.emit("join-meeting", { meetingId });
+
+    console.log("🔗 joined meeting:", meetingId);
+  }, [meetingId, user]);
 
   /* ================================
-     2️⃣ SOCKET JOIN
+     2️⃣ AUTHORITATIVE SNAPSHOT
+     (MOST IMPORTANT FIX)
   ================================ */
   useEffect(() => {
-    if (!meetingId || !user) return;
+    if (!user) return;
 
-    const joinSafely = () => {
-      if (hasJoinedMeeting) return;
-      hasJoinedMeeting = true;
-      joinMeetingRoom({ meetingId });
+    const handleMeetingState = (snapshot) => {
+      console.log("📸 meeting-state:", snapshot);
+
+      setParticipants(
+        snapshot.participants.map((p) => ({
+          id: p.id, // ✅ frontend uses `id`
+          name: p.name,
+          isMuted: p.isMuted,
+          isMe: p.id === user.id, // ✅ correct comparison
+        }))
+      );
     };
 
-    socket.connected ? joinSafely() : onSocketConnected(joinSafely);
+    socket.on("meeting-state", handleMeetingState);
+
+    return () => {
+      socket.off("meeting-state", handleMeetingState);
+    };
+  }, [user, setParticipants]);
+
+  /* ================================
+     3️⃣ REALTIME JOIN / LEAVE
+  ================================ */
+  useEffect(() => {
+    if (!user) return;
 
     const handleUserJoined = ({ user: joinedUser }) => {
+      console.log("➕ user joined:", joinedUser);
+
       setParticipants((prev) =>
         prev.some((p) => p.id === joinedUser.id)
           ? prev
           : [
               ...prev,
               {
-                ...joinedUser,
+                id: joinedUser.id,
+                name: joinedUser.name,
                 isMuted: false,
                 isMe: joinedUser.id === user.id,
               },
@@ -87,36 +95,55 @@ export default function MeetingRoom() {
     };
 
     const handleUserLeft = ({ userId }) => {
+      console.log("➖ user left:", userId);
+
       setParticipants((prev) => prev.filter((p) => p.id !== userId));
     };
 
-    onUserJoined(handleUserJoined);
-    onUserLeft(handleUserLeft);
-
-    return () => offMeetingListeners();
-  }, [meetingId, user, setParticipants]);
-
-  /* ================================
-     3️⃣ MUTE / UNMUTE SYNC
-  ================================ */
-  useEffect(() => {
-    onUserMuted(({ userId }) =>
-      setParticipants((prev) =>
-        prev.map((p) => (p.id === userId ? { ...p, isMuted: true } : p))
-      )
-    );
-
-    onUserUnmuted(({ userId }) =>
-      setParticipants((prev) =>
-        prev.map((p) => (p.id === userId ? { ...p, isMuted: false } : p))
-      )
-    );
+    socket.on("user-joined", handleUserJoined);
+    socket.on("user-left", handleUserLeft);
 
     return () => {
-      socket.off("user-muted");
-      socket.off("user-unmuted");
+      socket.off("user-joined", handleUserJoined);
+      socket.off("user-left", handleUserLeft);
     };
-  }, []);
+  }, [user, setParticipants]);
+
+  /* ================================
+     4️⃣ MUTE / UNMUTE SYNC
+  ================================ */
+  useEffect(() => {
+    const handleMuted = ({ userId }) => {
+      setParticipants((prev) =>
+        prev.map((p) => (p.id === userId ? { ...p, isMuted: true } : p))
+      );
+    };
+
+    const handleUnmuted = ({ userId }) => {
+      setParticipants((prev) =>
+        prev.map((p) => (p.id === userId ? { ...p, isMuted: false } : p))
+      );
+    };
+
+    socket.on("user-muted", handleMuted);
+    socket.on("user-unmuted", handleUnmuted);
+
+    return () => {
+      socket.off("user-muted", handleMuted);
+      socket.off("user-unmuted", handleUnmuted);
+    };
+  }, [setParticipants]);
+
+  /* ================================
+     GUARD (VERY IMPORTANT)
+  ================================ */
+  if (!user) {
+    return (
+      <div className="h-screen flex items-center justify-center text-white">
+        Loading meeting...
+      </div>
+    );
+  }
 
   /* ================================
      UI
@@ -124,23 +151,14 @@ export default function MeetingRoom() {
   return (
     <div className="h-screen flex flex-col bg-[#020617] text-white">
       {/* TOP BAR */}
-      <div className="h-14 flex items-center justify-between px-6 bg-white/5 backdrop-blur border-b border-white/10">
-        <h1 className="font-semibold tracking-wide">🎥 Meeting in progress</h1>
-
+      <div className="h-14 flex items-center justify-between px-6 bg-white/5 border-b border-white/10">
+        <h1 className="font-semibold">🎥 Meeting in progress</h1>
         <span className="text-xs text-gray-400">ID: {meetingId}</span>
       </div>
 
       {/* VIDEO GRID */}
       <div className="flex-1 p-6 overflow-y-auto">
-        <div
-          className="
-          grid gap-6
-          grid-cols-1
-          sm:grid-cols-2
-          lg:grid-cols-3
-          xl:grid-cols-4
-        "
-        >
+        <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {participants.map((p) => (
             <VideoTile
               key={p.id}
@@ -154,10 +172,10 @@ export default function MeetingRoom() {
         </div>
       </div>
 
-      {/* CONTROLS BAR */}
+      {/* CONTROLS */}
       <div className="sticky bottom-0 z-40">
         <div className="mx-auto max-w-3xl px-6 pb-6">
-          <div className="rounded-2xl bg-white/10 backdrop-blur border border-white/10 shadow-xl">
+          <div className="rounded-2xl bg-white/10 border border-white/10 shadow-xl">
             <Controls />
           </div>
         </div>
