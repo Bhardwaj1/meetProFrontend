@@ -10,11 +10,13 @@ import {
 } from "../../store/slices/authSlice";
 import { Notify } from "../../utils/notify";
 import StarBorder from "../../components/StarBorder";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const dispatch = useDispatch();
+
   const {
     loading,
     success,
@@ -23,7 +25,12 @@ export default function Login() {
     token,
   } = useSelector((state) => state.auth);
 
-  const [form, setForm] = useState({ email: "", password: "" });
+  const [form, setForm] = useState({
+    email: "",
+    password: "",
+  });
+
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -36,18 +43,21 @@ export default function Login() {
     dispatch(loginUser({ email: form.email, password: form.password }));
   };
 
-  // Show API error
+  // ❌ API Error
   useEffect(() => {
     if (error) Notify(error, "error");
   }, [error]);
 
+  // ✅ Login Success
   useEffect(() => {
     if (success && reduxUser && token) {
-      Notify("Login successful", "success"); // ✅ show success message
-      login(reduxUser, token); // save in AuthContext
+      Notify("Login successful", "success");
+      login(reduxUser, token);
+
       setTimeout(() => {
-        navigate("/", { replace: true }); // delay navigation a bit to show notification
-      }, 300); // 300ms delay
+        navigate("/", { replace: true });
+      }, 300);
+
       dispatch(resetAuthState());
     }
   }, [success, reduxUser, token, login, navigate, dispatch]);
@@ -56,7 +66,7 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0f172a] via-[#020617] to-black px-4">
       <div className="relative w-full max-w-md">
         {/* Glow */}
-        <div className="absolute -inset-1 bg-gradient-to-r from-blue-600/30 to-cyan-500/30 blur-2xl rounded-3xl"></div>
+        <div className="absolute -inset-1 bg-gradient-to-r from-blue-600/30 to-cyan-500/30 blur-2xl rounded-3xl" />
 
         {/* Card */}
         <div className="relative bg-white/10 backdrop-blur-2xl border border-white/10 rounded-3xl shadow-2xl px-8 py-10 sm:px-10">
@@ -79,13 +89,40 @@ export default function Login() {
               value={form.email}
               onChange={handleChange}
             />
-            <Input
-              placeholder="Password"
-              type="password"
-              name="password"
-              value={form.password}
-              onChange={handleChange}
-            />
+
+            {/* 🔐 Password with Eye Icon */}
+            <div className="relative">
+              <Input
+                placeholder="Password"
+                type={showPassword ? "text" : "password"}
+                name="password"
+                value={form.password}
+                onChange={handleChange}
+                className="pr-12"
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="
+                  absolute
+                  right-4
+                  top-1/2
+                  -translate-y-1/2
+                  text-gray-400
+                  hover:text-cyan-400
+                  transition-all
+                  duration-200
+                  hover:scale-110
+                "
+              >
+                {showPassword ? (
+                  <EyeOff size={20} />
+                ) : (
+                  <Eye size={20} />
+                )}
+              </button>
+            </div>
 
             {/* Primary Button */}
             <StarBorder color="#22d3ee" speed="4s" className="w-full">
@@ -93,14 +130,15 @@ export default function Login() {
                 onClick={handleLogin}
                 disabled={loading}
                 className="
-                            w-full
-    text-base
-    font-semibold
-    tracking-wide
-    rounded-xl
-    active:scale-[0.98]
-    transition-transform
-  "
+                  w-full
+                  text-base
+                  font-semibold
+                  tracking-wide
+                  rounded-xl
+                  active:scale-[0.98]
+                  transition-transform
+                  hover:cursor-pointer
+                "
               >
                 {loading ? "Signing In..." : "Sign In"}
               </button>
@@ -114,7 +152,7 @@ export default function Login() {
             <div className="flex-1 h-px bg-white/10" />
           </div>
 
-          {/* Guest Button */}
+          {/* Guest Login */}
           <StarBorder color="#6366f1" speed="6s" className="w-full">
             <button
               onClick={() => {
@@ -126,14 +164,15 @@ export default function Login() {
                 navigate("/");
               }}
               className="
-    w-full
-    text-sm
-    font-medium
-    tracking-wide
-    rounded-xl
-    active:scale-[0.98]
-    transition-transform
-  "
+                w-full
+                text-sm
+                font-medium
+                tracking-wide
+                rounded-xl
+                active:scale-[0.98]
+                transition-transform
+                hover:cursor-pointer
+              "
             >
               Continue as Guest
             </button>

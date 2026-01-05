@@ -47,6 +47,13 @@ export const leaveMeetingRoom = (meetingId) => {
   socket.emit("leave-meeting", { meetingId });
 };
 
+export const onMeetingError=(cb)=>{
+socket.on("meeting-error",(error)=>{
+  console.log("Meeting Socket error",error);
+  cb?.(error);
+})
+}
+
 /* ---------- HOST CONTROLS ---------- */
 export const hostMuteUser = (meetingId, targetUserId) => {
   socket.emit("host-mute-user", { meetingId, targetUserId });
@@ -73,4 +80,5 @@ export const offMeetingListeners = () => {
   socket.off("user-muted");
   socket.off("user-unmuted");
   socket.off("meeting-ended");
+  socket.off("meeting-error");
 };

@@ -13,6 +13,7 @@ import {
 
 import VideoTile from "../components/meeting/VideoTile";
 import Controls from "../components/meeting/Controls";
+import { Notify } from "../utils/notify";
 
 export default function MeetingRoom() {
   const { id: meetingId } = useParams();
@@ -178,6 +179,17 @@ export default function MeetingRoom() {
       socket.off("user-unmuted", handleUnmuted);
     };
   }, [setParticipants]);
+
+  useEffect(()=>{
+    const handleMeetingError=(error)=>{
+      Notify(error,"error");
+    }
+    socket.on("meeting-error",handleMeetingError);
+
+    return()=>{
+      socket.off("meeting-error",handleMeetingError);
+    }
+  },[meetingId]);
 
   /* ================================
      GUARD
