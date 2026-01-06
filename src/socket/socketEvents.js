@@ -2,8 +2,17 @@ import socket from "./socket";
 
 /* ---------- CONNECTION ---------- */
 export const connectSocket = () => {
+  const token = localStorage.getItem("token");
+
+  if (!token) {
+    console.warn("❌ Socket not connecting: token missing");
+    return;
+  }
+
+  socket.auth = { token }; // 🔥 THIS IS THE KEY LINE
+
   if (!socket.connected) {
-    console.log("🔌 Socket connecting...");
+    console.log("🔌 Socket connecting with token...");
     socket.connect();
   }
 };

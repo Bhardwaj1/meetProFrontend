@@ -19,13 +19,11 @@ export default function MeetingRoom() {
   const { id: meetingId } = useParams();
   const { user } = useAuth();
 
-  const {
-    participants,
-    setParticipants,
-    startLocalStream,
-  } = useMeeting();
+  const { participants, setParticipants } = useMeeting();
 
   const hasJoinedRef = useRef(false);
+  const retryCountRef = useRef(0);
+  const retryTimerRef = useRef(null);
 
   /* ================================
      0️⃣ SOCKET CONNECT / DISCONNECT
@@ -33,39 +31,43 @@ export default function MeetingRoom() {
   useEffect(() => {
     connectSocket();
 
-    socket.on("connect", () => {
+    const onConnect = () => {
       console.log("✅ Socket connected:", socket.id);
-    });
+    };
 
-    socket.on("disconnect", () => {
+    const onDisconnect = () => {
       console.log("❌ Socket disconnected");
-    });
+    };
 
-    socket.on("connect_error", (err) => {
-      console.log("🚫 Socket error:", err.message);
-    });
+    const onConnectError = (err) => {
+      console.log("🚫 Socket connect error:", err.message);
+      Notify("Connection issue. Reconnecting…", "warning");
+
+      setTimeout(() => {
+        socket.connect();
+      }, 1500);
+    };
+
+    socket.on("connect", onConnect);
+    socket.on("disconnect", onDisconnect);
+    socket.on("connect_error", onConnectError);
 
     return () => {
-      socket.off("connect");
-      socket.off("disconnect");
-      socket.off("connect_error");
+      socket.off("connect", onConnect);
+      socket.off("disconnect", onDisconnect);
+      socket.off("connect_error", onConnectError);
       disconnectSocket();
     };
   }, []);
 
   /* ================================
-     1️⃣ JOIN MEETING (ONLY ONCE)
+     1️⃣ JOIN MEETING (EMIT ONLY)
   ================================ */
   useEffect(() => {
     if (!meetingId || !user) return;
     if (hasJoinedRef.current) return;
 
-    hasJoinedRef.current = true;
-
-
-
-
-    // Add self immediately
+    // add self optimistically
     setParticipants([
       {
         id: user.id,
@@ -75,9 +77,9 @@ export default function MeetingRoom() {
       },
     ]);
 
-    // Emit join only after socket is ready
     const emitJoin = () => {
       if (socket.connected) {
+        console.log("➡️ join-meeting emit");
         socket.emit("join-meeting", { meetingId });
       } else {
         setTimeout(emitJoin, 300);
@@ -85,16 +87,21 @@ export default function MeetingRoom() {
     };
 
     emitJoin();
-  }, [meetingId, user, setParticipants, startLocalStream]);
+  }, [meetingId, user, setParticipants]);
 
   /* ================================
      2️⃣ AUTHORITATIVE SNAPSHOT
+     (JOIN CONFIRMATION POINT)
   ================================ */
   useEffect(() => {
     if (!user) return;
 
     const handleMeetingState = ({ participants }) => {
-      console.log("📸 meeting-state:", participants);
+      console.log("📸 meeting-state received");
+
+      // ✅ meeting officially joined
+      hasJoinedRef.current = true;
+      retryCountRef.current = 0;
 
       setParticipants(
         participants.map((p) => ({
@@ -156,17 +163,13 @@ export default function MeetingRoom() {
   useEffect(() => {
     const handleMuted = ({ userId }) => {
       setParticipants((prev) =>
-        prev.map((p) =>
-          p.id === userId ? { ...p, isMuted: true } : p
-        )
+        prev.map((p) => (p.id === userId ? { ...p, isMuted: true } : p))
       );
     };
 
     const handleUnmuted = ({ userId }) => {
       setParticipants((prev) =>
-        prev.map((p) =>
-          p.id === userId ? { ...p, isMuted: false } : p
-        )
+        prev.map((p) => (p.id === userId ? { ...p, isMuted: false } : p))
       );
     };
 
@@ -179,16 +182,50 @@ export default function MeetingRoom() {
     };
   }, [setParticipants]);
 
-  useEffect(()=>{
-    const handleMeetingError=(error)=>{
-      Notify(error,"error");
-    }
-    socket.on("meeting-error",handleMeetingError);
+  /* ================================
+     5️⃣ MEETING ERROR → AUTO RETRY + SAFE EXIT
+  ================================ */
+  useEffect(() => {
+    const MAX_RETRY = 3;
 
-    return()=>{
-      socket.off("meeting-error",handleMeetingError);
-    }
-  },[meetingId]);
+    const handleMeetingError = (error) => {
+      console.warn("⚠️ meeting-error:", error);
+
+      if (hasJoinedRef.current) return;
+
+      if (retryCountRef.current < MAX_RETRY) {
+        retryCountRef.current += 1;
+
+        Notify(
+          `Meeting issue. Retrying ${retryCountRef.current}/${MAX_RETRY}`,
+          "warning"
+        );
+
+        retryTimerRef.current = setTimeout(() => {
+          if (socket.connected) {
+            socket.emit("join-meeting", { meetingId });
+          }
+        }, 1000);
+      } else {
+        Notify("Meeting unavailable. Redirecting safely…", "error");
+
+        socket.emit("leave-meeting", { meetingId });
+
+        setTimeout(() => {
+          window.location.href = "/";
+        }, 1200);
+      }
+    };
+
+    socket.on("meeting-error", handleMeetingError);
+
+    return () => {
+      socket.off("meeting-error", handleMeetingError);
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+      }
+    };
+  }, [meetingId]);
 
   /* ================================
      GUARD
@@ -206,7 +243,6 @@ export default function MeetingRoom() {
   ================================ */
   return (
     <div className="h-screen flex flex-col bg-[#020617] text-white">
-      {/* TOP BAR */}
       <div className="h-14 flex items-center justify-between px-6 bg-white/5 border-b border-white/10">
         <h1 className="font-semibold">🎥 Meeting in progress</h1>
         <span className="text-xs text-gray-400">
@@ -214,7 +250,6 @@ export default function MeetingRoom() {
         </span>
       </div>
 
-      {/* VIDEO GRID */}
       <div className="flex-1 p-6 overflow-y-auto">
         <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {participants.map((p) => (
@@ -230,7 +265,6 @@ export default function MeetingRoom() {
         </div>
       </div>
 
-      {/* CONTROLS */}
       <div className="sticky bottom-0 z-40">
         <div className="mx-auto max-w-3xl px-6 pb-6">
           <div className="rounded-2xl bg-white/10 border border-white/10 shadow-xl">
