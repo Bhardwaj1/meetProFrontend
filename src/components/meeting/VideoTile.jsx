@@ -29,6 +29,9 @@ export default function VideoTile({ name, isMe, isMuted }) {
     setTimeout(play, 300);
   }, [isMe, localStreamRef.current]);
 
+
+  
+
   return (
     <div className="relative aspect-video rounded-2xl bg-black border border-white/10 overflow-hidden">
       {isMe ? (
