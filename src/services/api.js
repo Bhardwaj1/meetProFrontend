@@ -5,11 +5,12 @@ const api = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
-  timeout: 10000,
-  withCredentials: true,
+  withCredentials: true, // 🔥 refreshToken cookie ke liye
 });
 
-// ✅ Attach token to every request
+/* ================================
+   REQUEST INTERCEPTOR
+================================ */
 api.interceptors.request.use(
   (config) => {
     const accessToken = localStorage.getItem("accessToken");
@@ -17,20 +18,113 @@ api.interceptors.request.use(
     if (accessToken) {
       config.headers.Authorization = `Bearer ${accessToken}`;
     }
+
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// Global response handling
+/* ================================
+   RESPONSE INTERCEPTOR (REFRESH)
+================================ */
+
+// 🔒 refresh coordination
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) prom.reject(error);
+    else prom.resolve(token);
+  });
+  failedQueue = [];
+};
+
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    const message =
-      error?.response?.data?.message || error.message || "Something went wrong";
+  async (error) => {
+    const originalRequest = error.config;
 
-    return Promise.reject(message);
+    // ❌ agar response hi nahi (network error)
+    if (!error.response) {
+      return Promise.reject(error);
+    }
+
+    // ❌ agar 401 nahi hai → normal error
+    if (error.response.status !== 401) {
+      const message =
+        error?.response?.data?.message ||
+        error.message ||
+        "Something went wrong";
+      return Promise.reject(message);
+    }
+
+    // ❌ refresh endpoint pe hi 401 aaya → logout
+    if (originalRequest.url.includes("/auth/refresh-token")) {
+      forceLogout();
+      return Promise.reject("Session expired. Please login again.");
+    }
+
+    // ❌ infinite retry protection
+    if (originalRequest._retry) {
+      forceLogout();
+      return Promise.reject("Unauthorized");
+    }
+
+    originalRequest._retry = true;
+
+    /* ================================
+       QUEUE HANDLING
+    ================================ */
+    if (isRefreshing) {
+      return new Promise((resolve, reject) => {
+        failedQueue.push({
+          resolve: (token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            resolve(api(originalRequest));
+          },
+          reject,
+        });
+      });
+    }
+
+    isRefreshing = true;
+
+    try {
+      // 🔄 refresh token call (cookie based)
+      const res = await api.post("/auth/refresh-token");
+
+      const newAccessToken = res.data.accessToken;
+
+      // 🔥 save new token
+      localStorage.setItem("accessToken", newAccessToken);
+
+      api.defaults.headers.Authorization = `Bearer ${newAccessToken}`;
+      processQueue(null, newAccessToken);
+
+      originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+      return api(originalRequest);
+    } catch (refreshError) {
+      processQueue(refreshError, null);
+      forceLogout();
+      return Promise.reject("Session expired. Please login again.");
+    } finally {
+      isRefreshing = false;
+    }
   }
 );
+
+/* ================================
+   FORCE LOGOUT (CENTRALIZED)
+================================ */
+function forceLogout() {
+
+  console.log("ForceLogout");
+  localStorage.removeItem("accessToken");
+  localStorage.removeItem("user");
+
+  // socket disconnect yahan baad me add kar sakte ho
+  window.location.href = "/login";
+}
 
 export default api;

@@ -19,11 +19,11 @@ export default function CreateMeeting() {
   /* ================================
      1️⃣ AUTO JOIN AFTER CREATE
   ================================ */
-  useEffect(() => {
-    if (meetingId) {
-      dispatch(joinMeeting(meetingId));
-    }
-  }, [meetingId, dispatch]);
+  // useEffect(() => {
+  //   if (meetingId) {
+  //     dispatch(joinMeeting(meetingId));
+  //   }
+  // }, [meetingId, dispatch]);
 
   /* ================================
      2️⃣ NAVIGATE ONCE (MEETING ID IS ENOUGH)

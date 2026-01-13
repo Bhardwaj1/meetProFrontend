@@ -7,10 +7,25 @@ export default function Navbar() {
   const navigate = useNavigate();
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
-  const confirmLogout = async() => {
-    await logout();
-    navigate("/login");
+  const confirmLogout = async () => {
+    if (loggingOut) return; // ⛔ prevent double click
+
+    try {
+      setLoggingOut(true);
+
+      // 🔥 backend logout + token clear + socket disconnect
+      await logout();
+
+      // 🧠 small delay = smooth UX (industry trick)
+      setTimeout(() => {
+        navigate("/login", { replace: true });
+      }, 600);
+    } catch (err) {
+      console.error("Logout failed", err);
+      setLoggingOut(false);
+    }
   };
 
   return (
