@@ -1,5 +1,9 @@
 import axios from "axios";
+import { getSocket, refreshSocketAuth } from "../socket/socket";
 
+/* ================================
+   AXIOS INSTANCE
+================================ */
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
   headers: {
@@ -28,7 +32,7 @@ api.interceptors.request.use(
    RESPONSE INTERCEPTOR (REFRESH)
 ================================ */
 
-// 🔒 refresh coordination
+// 🔒 refresh coordination (parallel 401 safe)
 let isRefreshing = false;
 let failedQueue = [];
 
@@ -45,12 +49,12 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // ❌ agar response hi nahi (network error)
+    // ❌ Network / CORS error
     if (!error.response) {
       return Promise.reject(error);
     }
 
-    // ❌ agar 401 nahi hai → normal error
+    // ❌ Not a 401 → normal error
     if (error.response.status !== 401) {
       const message =
         error?.response?.data?.message ||
@@ -59,13 +63,13 @@ api.interceptors.response.use(
       return Promise.reject(message);
     }
 
-    // ❌ refresh endpoint pe hi 401 aaya → logout
-    if (originalRequest.url.includes("/auth/refresh-token")) {
+    // ❌ Refresh-token endpoint itself failed
+    if (originalRequest.url?.includes("/auth/refresh-token")) {
       forceLogout();
       return Promise.reject("Session expired. Please login again.");
     }
 
-    // ❌ infinite retry protection
+    // ❌ Infinite retry protection
     if (originalRequest._retry) {
       forceLogout();
       return Promise.reject("Unauthorized");
@@ -74,7 +78,7 @@ api.interceptors.response.use(
     originalRequest._retry = true;
 
     /* ================================
-       QUEUE HANDLING
+       QUEUE HANDLING (MULTIPLE 401)
     ================================ */
     if (isRefreshing) {
       return new Promise((resolve, reject) => {
@@ -91,17 +95,29 @@ api.interceptors.response.use(
     isRefreshing = true;
 
     try {
-      // 🔄 refresh token call (cookie based)
-      const res = await api.post("/auth/refresh-token");
+      /* 🔄 REFRESH TOKEN CALL
+         ❗ plain axios (no interceptors) */
+      const res = await axios.post(
+        `${import.meta.env.VITE_API_BASE_URL}/auth/refresh-token`,
+        {},
+        { withCredentials: true }
+      );
 
       const newAccessToken = res.data.accessToken;
 
-      // 🔥 save new token
+      // 🔥 Save new token
       localStorage.setItem("accessToken", newAccessToken);
 
-      api.defaults.headers.Authorization = `Bearer ${newAccessToken}`;
+      // 🔥 FIX: set global header correctly
+      api.defaults.headers.common.Authorization = `Bearer ${newAccessToken}`;
+
+      // 🔁 resolve queued requests
       processQueue(null, newAccessToken);
 
+      // 🔌 refresh socket auth
+      refreshSocketAuth(newAccessToken);
+
+      // 🔁 retry original request
       originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
       return api(originalRequest);
     } catch (refreshError) {
@@ -118,16 +134,18 @@ api.interceptors.response.use(
    FORCE LOGOUT (CENTRALIZED)
 ================================ */
 function forceLogout() {
-
   console.log("ForceLogout");
+
   localStorage.removeItem("accessToken");
   localStorage.removeItem("user");
 
-  // socket disconnect yahan baad me add kar sakte ho
+  const socket = getSocket();
+  socket?.disconnect();
+
+  // hard redirect (interceptor context)
   setTimeout(() => {
     window.location.href = "/login";
-  }, 100); // 👈 100ms
-
+  }, 100);
 }
 
 export default api;
