@@ -22,17 +22,25 @@ export const login = createAsyncThunk(
     }
   }
 );
+
 const authSlice = createSlice({
   name: "auth",
   initialState: {
     user: null,
-    token: null,
+    accessToken: null,
     loading: false,
     error: null,
     success: false,
   },
   reducers: {
     resetAuthState: (state) => {
+      state.loading = false;
+      state.error = null;
+      state.success = false;
+    },
+    logout: (state) => {
+      state.user = null;
+      state.accessToken = null;
       state.loading = false;
       state.error = null;
       state.success = false;
@@ -48,7 +56,7 @@ const authSlice = createSlice({
         state.loading = false;
         state.success = true;
         state.user = action.payload.user;
-        state.token = action.payload.token;
+        state.accessToken = action.payload.accessToken;
       })
       .addCase(login.rejected, (state, action) => {
         state.loading = false;

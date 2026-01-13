@@ -6,17 +6,17 @@ const api = axios.create({
     "Content-Type": "application/json",
   },
   timeout: 10000,
+  withCredentials: true,
 });
 
 // ✅ Attach token to every request
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("token"); // or sessionStorage
+    const accessToken = localStorage.getItem("accessToken");
 
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    if (accessToken) {
+      config.headers.Authorization = `Bearer ${accessToken}`;
     }
-
     return config;
   },
   (error) => Promise.reject(error)
@@ -27,9 +27,7 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const message =
-      error?.response?.data?.message ||
-      error.message ||
-      "Something went wrong";
+      error?.response?.data?.message || error.message || "Something went wrong";
 
     return Promise.reject(message);
   }

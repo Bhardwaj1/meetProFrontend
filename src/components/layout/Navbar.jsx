@@ -8,8 +8,8 @@ export default function Navbar() {
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-  const confirmLogout = () => {
-    logout();
+  const confirmLogout = async() => {
+    await logout();
     navigate("/login");
   };
 

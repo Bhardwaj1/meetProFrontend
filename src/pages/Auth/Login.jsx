@@ -22,7 +22,7 @@ export default function Login() {
     success,
     error,
     user: reduxUser,
-    token,
+    accessToken,
   } = useSelector((state) => state.auth);
 
   const [form, setForm] = useState({
@@ -48,19 +48,30 @@ export default function Login() {
     if (error) Notify(error, "error");
   }, [error]);
 
-  // ✅ Login Success
-  useEffect(() => {
-    if (success && reduxUser && token) {
-      Notify("Login successful", "success");
-      login(reduxUser, token);
+  // // ✅ Login Success
+  // useEffect(() => {
+  //   if (success && reduxUser && accessToken) {
+  //     Notify("Login successful", "success");
+  //     login(reduxUser, accessToken);
 
-      setTimeout(() => {
-        navigate("/", { replace: true });
-      }, 300);
+  //     setTimeout(() => {
+  //       navigate("/", { replace: true });
+  //     }, 300);
+
+  //     dispatch(resetAuthState());
+  //   }
+  // }, [success, reduxUser, accessToken, login, navigate, dispatch]);
+
+  useEffect(() => {
+    if (success && reduxUser && accessToken) {
+      Notify("Login successful", "success");
+
+      // ✅ accessToken save
+      login(reduxUser, accessToken);
 
       dispatch(resetAuthState());
     }
-  }, [success, reduxUser, token, login, navigate, dispatch]);
+  }, [success, reduxUser, accessToken, login, dispatch]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0f172a] via-[#020617] to-black px-4">
@@ -116,11 +127,7 @@ export default function Login() {
                   hover:scale-110
                 "
               >
-                {showPassword ? (
-                  <EyeOff size={20} />
-                ) : (
-                  <Eye size={20} />
-                )}
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             </div>
 
@@ -156,12 +163,15 @@ export default function Login() {
           <StarBorder color="#6366f1" speed="6s" className="w-full">
             <button
               onClick={() => {
-                login({
-                  id: "demo-user-1",
-                  name: "Demo User",
-                  email: "demo@meetpro.com",
-                });
-                navigate("/");
+                login(
+                  {
+                    id: "demo-user-1",
+                    name: "Demo User",
+                    email: "demo@meetpro.com",
+                  },
+                  "guest-access-token"
+                );
+                navigate("/", { replace: true });
               }}
               className="
                 w-full
