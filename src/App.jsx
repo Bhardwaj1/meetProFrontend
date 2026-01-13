@@ -22,6 +22,17 @@ export default function App() {
     };
   }, [user]);
 
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === "accessToken" && !e.newValue) {
+        window.location.href = "/login";
+      }
+    };
+
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
   return (
     <BrowserRouter>
       {isLoading && <Loader fullScreen />}

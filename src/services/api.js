@@ -124,7 +124,10 @@ function forceLogout() {
   localStorage.removeItem("user");
 
   // socket disconnect yahan baad me add kar sakte ho
-  window.location.href = "/login";
+  setTimeout(() => {
+    window.location.href = "/login";
+  }, 100); // 👈 100ms
+
 }
 
 export default api;
