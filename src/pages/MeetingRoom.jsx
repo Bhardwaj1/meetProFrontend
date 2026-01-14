@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { getSocket } from "../socket/socket";
 import { useAuth } from "../context/AuthContext";
@@ -15,11 +15,13 @@ import VideoTile from "../components/meeting/VideoTile";
 import Controls from "../components/meeting/Controls";
 import { Notify } from "../utils/notify";
 import MeetingTime from "../components/meeting/MeetingTime";
+import JoinRequestModal from "../components/meeting/JoinRequestModal";
 
 export default function MeetingRoom() {
   const { id: meetingId } = useParams();
   const { user } = useAuth();
   const { participants, setParticipants } = useMeeting();
+  const [recentJoin, setRecentJoin] = useState(null);
 
   const hasJoinedRef = useRef(false);
   const retryCountRef = useRef(0);
@@ -108,10 +110,11 @@ export default function MeetingRoom() {
 
       setParticipants(
         participants.map((p) => ({
-          id: p._id || p.id,
+          id: p.id,
           name: p.name,
+          role: p.role, // ✅ ADD THIS
           isMuted: p.isMuted,
-          isMe: (p._id || p.id) === user.id,
+          isMe: p.id === user.id,
         }))
       );
     };
@@ -130,7 +133,7 @@ export default function MeetingRoom() {
 
     const handleUserJoined = ({ user: joinedUser }) => {
       const joinedUserId = joinedUser._id || joinedUser.id;
-
+      setRecentJoin(joinedUserId);
       setParticipants((prev) =>
         prev.some((p) => p.id === joinedUserId)
           ? prev
@@ -144,6 +147,8 @@ export default function MeetingRoom() {
               },
             ]
       );
+      // reset after animation duration
+      setTimeout(() => setRecentJoin(null), 800);
     };
 
     const handleUserLeft = ({ userId }) => {
@@ -220,7 +225,9 @@ export default function MeetingRoom() {
       clearTimeout(retryTimerRef.current);
     };
   }, [meetingId]);
+  const isHost = participants.some((p) => p.isMe && p.role === "HOST");
 
+  console.log(isHost);
   /* ================================
      UI
   ================================ */
@@ -237,6 +244,10 @@ export default function MeetingRoom() {
   ================================ */
   return (
     <div className="h-screen flex flex-col bg-[#020617] text-white">
+      {/* 🔔 HOST JOIN REQUEST MODAL */}
+      <JoinRequestModal meetingId={meetingId} isHost={isHost} />
+
+      {/* HEADER */}
       <div className="h-14 flex items-center justify-between px-6 bg-white/5 border-b border-white/10">
         <h1 className="font-semibold">🎥 Meeting in progress</h1>
         <span className="text-xs text-gray-400">
@@ -244,6 +255,7 @@ export default function MeetingRoom() {
         </span>
       </div>
 
+      {/* VIDEO GRID */}
       <div className="flex-1 p-6 overflow-y-auto">
         <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {participants.map((p) => (
@@ -254,16 +266,15 @@ export default function MeetingRoom() {
               isMuted={p.isMuted}
               onMute={() => hostMuteUser(meetingId, p.id)}
               onUnmute={() => hostUnmuteUser(meetingId, p.id)}
+              animate={p.id === recentJoin}
             />
           ))}
         </div>
       </div>
 
+      {/* CONTROLS */}
       <div className="sticky bottom-0 z-40 relative">
-        {/* ⏰ TIME (LEFT SIDE) */}
         <MeetingTime />
-
-        {/* 🎛 CONTROLS (CENTER – unchanged) */}
         <div className="mx-auto max-w-3xl px-6 pb-6">
           <div className="shadow-xl">
             <Controls />

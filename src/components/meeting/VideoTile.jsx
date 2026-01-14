@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useMeeting } from "../../context/MeetingContext";
 
-export default function VideoTile({ name, isMe, isMuted }) {
+export default function VideoTile({ name, isMe, isMuted, animate }) {
   const videoRef = useRef(null);
   const { localStream } = useMeeting();
 
@@ -19,7 +19,7 @@ export default function VideoTile({ name, isMe, isMuted }) {
         await video.play();
         console.log("▶️ video playing");
       } catch (e) {
-        console.warn("Autoplay blocked",e);
+        console.warn("Autoplay blocked", e);
       }
     };
 
@@ -31,7 +31,15 @@ export default function VideoTile({ name, isMe, isMuted }) {
   }, [isMe, localStream]);
 
   return (
-    <div className="relative aspect-video rounded-2xl bg-black border border-white/10 overflow-hidden">
+    <div
+      className={`
+    relative aspect-video rounded-2xl bg-black
+    border border-white/10 overflow-hidden
+    transition-all duration-500 ease-out
+    ${animate ? "scale-100 opacity-100" : "opacity-90"}
+    ${animate ? "animate-join" : ""}
+  `}
+    >
       {isMe ? (
         <video
           ref={videoRef}

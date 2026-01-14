@@ -121,3 +121,18 @@
     @apply bg-background text-foreground;
   }
 }
+
+@keyframes joinIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-join {
+  animation: joinIn 0.45s ease-out;
+}
