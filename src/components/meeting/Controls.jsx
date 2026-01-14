@@ -1,4 +1,4 @@
-import { useState } from "react";
+
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { leaveMeeting } from "../../store/slices/meetingSlice";
@@ -11,41 +11,10 @@ export default function Controls() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  const { leaveSession, startLocalStream } = useMeeting();
+const { toggleCamera, toggleMic, leaveSession, mediaState } = useMeeting();
   const { meetingId, loading } = useSelector((state) => state.meeting);
 
-  // ✅ UI-only states
-  const [micOn, setMicOn] = useState(true);
-  const [cameraOn, setCameraOn] = useState(false);
-
-  /* ============================
-     MIC TOGGLE (UI ONLY)
-  ============================ */
-  const handleMicToggle = () => {
-    setMicOn((prev) => !prev);
-
-    Notify(micOn ? "Mic muted (UI only)" : "Mic unmuted (UI only)", "info");
-  };
-
-  /* ============================
-     CAMERA TOGGLE
-  ============================ */
-  const handleCameraToggle = async () => {
-    if (!cameraOn) {
-      try {
-        await startLocalStream(); // 🔥 only when turning ON
-        setCameraOn(true);
-        Notify("Camera ON", "success");
-      } catch (e) {
-        console.error("Camera error:", e);
-        Notify("Camera permission denied", "error");
-      }
-    } else {
-      // ❌ no stop logic yet (WebRTC baad me)
-      setCameraOn(false);
-      Notify("Camera OFF (UI only)", "info");
-    }
-  };
+ 
 
   /* ============================
      LEAVE MEETING
@@ -73,18 +42,18 @@ export default function Controls() {
       <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/10 backdrop-blur border border-white/10 shadow-lg">
         {/* 🎤 MIC */}
         <button
-          onClick={handleMicToggle}
+          onClick={toggleMic}
           className="p-3 rounded-full bg-indigo-600 hover:bg-indigo-700 transition"
         >
-          {micOn ? <Mic /> : <MicOff />}
+          {mediaState.mic === "on" ? <Mic /> : <MicOff />}
         </button>
 
         {/* 🎥 CAMERA */}
         <button
-          onClick={handleCameraToggle}
+          onClick={toggleCamera}
           className="p-3 rounded-full bg-purple-600 hover:bg-purple-700 transition"
         >
-          {cameraOn ? <Video /> : <VideoOff />}
+          {mediaState.camera === "on" ? <Video /> : <VideoOff />}
         </button>
 
         {/* ❌ LEAVE */}

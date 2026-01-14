@@ -3,17 +3,15 @@ import { useMeeting } from "../../context/MeetingContext";
 
 export default function VideoTile({ name, isMe, isMuted }) {
   const videoRef = useRef(null);
-  const { localStreamRef } = useMeeting();
+  const { localStream } = useMeeting();
 
   useEffect(() => {
     if (!isMe) return;
+    if (!videoRef.current || !localStream) return;
 
     const video = videoRef.current;
-    const stream = localStreamRef.current;
 
-    if (!video || !stream) return;
-
-    video.srcObject = stream;
+    video.srcObject = localStream;
     video.muted = true;
 
     const play = async () => {
@@ -21,16 +19,16 @@ export default function VideoTile({ name, isMe, isMuted }) {
         await video.play();
         console.log("▶️ video playing");
       } catch (e) {
-        console.warn("play blocked, waiting for click");
+        console.warn("Autoplay blocked",e);
       }
     };
 
     video.onloadedmetadata = play;
-    setTimeout(play, 300);
-  }, [isMe, localStreamRef.current]);
 
-
-  
+    return () => {
+      video.srcObject = null;
+    };
+  }, [isMe, localStream]);
 
   return (
     <div className="relative aspect-video rounded-2xl bg-black border border-white/10 overflow-hidden">
