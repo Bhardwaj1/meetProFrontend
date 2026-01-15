@@ -12,16 +12,28 @@ const JoinRequestModal = ({ meetingId, isHost }) => {
      SOCKET LISTENER (JOIN REQUEST)
   ================================ */
 
+
+  console.log("Render Modal");
+  console.log("isHost:", isHost);
+  console.log("requests.length:", requests.length);
+  console.log("requests:", requests);
+
   useEffect(() => {
+    console.log("🔔 JoinRequestModal - isHost:", isHost);
     if (!isHost) {
+      console.log("🚫 Not host, skipping listener");
       return;
     }
     const socket = getSocket();
+    console.log("🔌 Socket in modal:", socket);
+    console.log("🔌 Socket ID:", socket?.id);
     if (!socket) {
+      console.log("🚫 No socket found");
       return;
     }
 
     const handleJoinRequest = ({ userId, name }) => {
+      console.log("🔔 JOIN REQUEST RECEIVED:", { userId, name });
       setRequests((prev) =>
         prev.some((u) => u.userId === userId)
           ? prev
@@ -30,9 +42,19 @@ const JoinRequestModal = ({ meetingId, isHost }) => {
       Notify(`${name} want to join`, "info");
     };
 
+    // Test listener - remove after debugging
+    const testAllEvents = (eventName, ...args) => {
+      console.log("📡 Socket event received:", eventName, args);
+    };
+    socket.onAny(testAllEvents);
+
+    console.log("✅ Registering join-requested listener");
     socket.on("join-requested", handleJoinRequest);
+    
     return () => {
+      console.log("🧹 Cleaning up join-requested listener");
       socket.off("join-requested", handleJoinRequest);
+      socket.offAny(testAllEvents);
     };
   }, [isHost]);
 
