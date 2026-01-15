@@ -17,7 +17,16 @@ export default function JoinMeeting() {
 
     try {
       setLoading(true);
-      await dispatch(joinMeeting(meetingId.trim())).unwrap();
+
+      const res = await dispatch(joinMeeting(meetingId.trim())).unwrap();
+
+      // 🔥 CASE 1: waiting for host approval
+      if (res?.message?.toLowerCase().includes("waiting")) {
+        navigate(`/waiting-room/${meetingId.trim()}`);
+        return;
+      }
+
+      // 🔥 CASE 2: host / already approved user
       navigate(`/meeting/${meetingId.trim()}`);
     } catch (err) {
       toast.error(err?.message || "Unable to join meeting");
