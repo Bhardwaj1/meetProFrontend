@@ -33,6 +33,10 @@ export default function Sidebar() {
         <Link to="/join-meeting" className={navItem("/join-meeting")}>
           Join Meeting
         </Link>
+
+        <Link to="/meeting-logs" className={navItem("/meeting-logs")}>
+          Meeting Logs
+        </Link>
       </nav>
 
       {/* Footer */}

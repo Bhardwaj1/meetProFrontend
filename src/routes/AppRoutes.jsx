@@ -9,6 +9,7 @@ import MainLayout from "../components/layout/MainLayout";
 import ProtectedRoute from "./ProtectedRoute";
 import VerifyOtp from "../pages/Auth/VerifyOtp";
 import WaitingRoom from "../pages/WaitingRoom";
+import MeetingLogs from "../pages/MeetingLogs";
 
 export default function AppRoutes() {
   return (
@@ -25,6 +26,7 @@ export default function AppRoutes() {
           <Route path="/create-meeting" element={<CreateMeeting />} />
           <Route path="/join-meeting" element={<JoinMeeting />} />
           <Route path="/waiting-room/:meetingId" element={<WaitingRoom />} />
+          <Route path="/meeting-logs/" element={<MeetingLogs />} />
         </Route>
       </Route>
 

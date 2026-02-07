@@ -13,10 +13,10 @@ const JoinRequestModal = ({ meetingId, isHost }) => {
   ================================ */
 
 
-  console.log("Render Modal");
-  console.log("isHost:", isHost);
-  console.log("requests.length:", requests.length);
-  console.log("requests:", requests);
+  // console.log("Render Modal");
+  // console.log("isHost:", isHost);
+  // console.log("requests.length:", requests.length);
+  // console.log("requests:", requests);
 
   useEffect(() => {
     console.log("🔔 JoinRequestModal - isHost:", isHost);
@@ -48,16 +48,16 @@ const JoinRequestModal = ({ meetingId, isHost }) => {
     };
     socket.onAny(testAllEvents);
 
-    console.log("✅ Registering join-requested listener");
+    // console.log("✅ Registering join-requested listener");
     socket.on("join-requested", handleJoinRequest);
     
     return () => {
-      console.log("🧹 Cleaning up join-requested listener");
+      // console.log("🧹 Cleaning up join-requested listener");
       socket.off("join-requested", handleJoinRequest);
       socket.offAny(testAllEvents);
     };
   }, [isHost]);
-
+  
   /* ================================
      APPROVE / REJECT
   ================================ */
@@ -69,6 +69,8 @@ const JoinRequestModal = ({ meetingId, isHost }) => {
     setRequests((prev) => prev.filter((u) => u.userId !== userId));
     Notify("User admitted", "success");
   };
+
+
   const handleReject = (userId) => {
     const socket = getSocket();
     socket?.emit("reject-join", { meetingId, userId });
