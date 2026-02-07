@@ -1,6 +1,6 @@
 import Drawer from "../../components/Drawer/Drawer";
 import DrawerHeader from "../../components/Drawer/DrawerHeader";
-import StatusPill from "./StatusPill";
+import StatusPill from "../../components/StatusPill";
 
 const MeetingDetailsDrawer = ({ open, onClose, meeting }) => {
   if (!meeting) return null;

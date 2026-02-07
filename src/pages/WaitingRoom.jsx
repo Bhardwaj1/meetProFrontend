@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getSocket } from "../socket/socket";
+import { connectSocket } from "../socket/socketEvents";
 import { Notify } from "../utils/notify";
 import { leaveMeetingRoom } from "../socket/socketEvents";
 
@@ -9,6 +10,13 @@ export default function WaitingRoom() {
   const { meetingId } = useParams();
   const navigate = useNavigate();
   const [seconds, setSeconds] = useState(0);
+
+  /* ================================
+     CONNECT SOCKET
+  ================================ */
+  useEffect(() => {
+    connectSocket();
+  }, []);
 
   /* ================================
      TIMER (UX polish)
@@ -20,6 +28,35 @@ export default function WaitingRoom() {
 
     return () => clearInterval(interval);
   }, []);
+
+  /* ================================
+     EMIT REQUEST-JOIN (ONCE)
+  ================================ */
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) {
+      console.log("❌ WaitingRoom: No socket instance");
+      return;
+    }
+
+    let emitted = false;
+    const emitRequest = () => {
+      if (emitted) return;
+      
+      if (socket.connected) {
+        console.log("🚀 WaitingRoom: Emitting request-join for meetingId:", meetingId);
+        socket.emit("request-join", { meetingId });
+        emitted = true;
+      } else {
+        console.log("⏳ WaitingRoom: Socket not connected, retrying...");
+        setTimeout(emitRequest, 300);
+      }
+    };
+
+    // Delay to ensure API call completed first
+    const timer = setTimeout(emitRequest, 500);
+    return () => clearTimeout(timer);
+  }, [meetingId]);
 
   /* ================================
      SOCKET LISTENERS

@@ -67,37 +67,7 @@ export default function MeetingRoom() {
     };
   }, []);
 
-  /* ================================
-     1️⃣ REQUEST JOIN (ENTRY POINT)
-     ⛔ NO join-meeting here
-  ================================ */
-  useEffect(() => {
-    console.log("🟡 request-join effect fired");
-    console.log("🧩 meetingId:", meetingId);
-    console.log("🧩 user:", user);
 
-    if (!meetingId || !user) {
-      console.log("🚫 meetingId or user not found");
-      return;
-    }
-    if (hasJoinedRef.current) return;
-
-    const socket = getSocket();
-
-    console.log({ socket });
-    if (!socket) return;
-
-    const emitRequest = () => {
-      console.log("🚀 emitting request-join", meetingId);
-      if (socket.connected) {
-        socket.emit("request-join", { meetingId });
-      } else {
-        setTimeout(emitRequest, 300);
-      }
-    };
-
-    emitRequest();
-  }, [meetingId, user]);
 
   /* ================================
      1️⃣ JOIN MEETING
@@ -106,19 +76,10 @@ export default function MeetingRoom() {
     if (!meetingId || !user) return;
     if (hasJoinedRef.current) return;
 
-    setParticipants([
-      {
-        id: user.id,
-        name: user.name,
-        isMuted: false,
-        isMe: true,
-      },
-    ]);
+    const socket = getSocket();
+    if (!socket) return;
 
     const emitJoin = () => {
-      const socket = getSocket();
-      if (!socket) return;
-
       if (socket.connected) {
         socket.emit("join-meeting", { meetingId });
       } else {
@@ -127,7 +88,7 @@ export default function MeetingRoom() {
     };
 
     emitJoin();
-  }, [meetingId, user, setParticipants]);
+  }, [meetingId, user]);
 
   /* ================================
      2️⃣ AUTHORITATIVE SNAPSHOT

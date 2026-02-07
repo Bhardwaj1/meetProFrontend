@@ -8,6 +8,20 @@ const JoinRequestModal = ({ meetingId, isHost }) => {
   const [requests, setRequests] = useState([]);
   const playAdmitSound = useSound("/sounds/admit.mp3");
 
+  // 🧪 DEBUG: Add test request button (remove after debugging)
+  const [showDebug, setShowDebug] = useState(false);
+
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      if (e.key === 'T' && e.shiftKey && e.ctrlKey) {
+        setShowDebug(prev => !prev);
+        console.log("🧪 Debug mode toggled");
+      }
+    };
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, []);
+
   /* ================================
      SOCKET LISTENER (JOIN REQUEST)
   ================================ */
@@ -79,7 +93,37 @@ const JoinRequestModal = ({ meetingId, isHost }) => {
     Notify("User rejected", "warning");
   };
 
-  if (!isHost || requests.length === 0) return null;
+  if (!isHost || requests.length === 0) {
+    // Debug: Show modal even without requests if host
+    if (isHost) {
+      console.log("🟡 Modal: isHost=true but no requests. Requests:", requests);
+    }
+    
+    // 🧪 DEBUG MODE: Press Ctrl+Shift+T to test modal
+    if (showDebug && isHost) {
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="relative w-full max-w-md bg-yellow-900/90 border-4 border-yellow-500 rounded-3xl p-6">
+            <h2 className="text-xl font-bold mb-4">🧪 DEBUG MODE</h2>
+            <p className="text-sm mb-4">Modal is working! Press Ctrl+Shift+T to hide.</p>
+            <button
+              onClick={() => setRequests([{userId: 'test-123', name: 'Test User'}])}
+              className="w-full py-2 bg-green-600 rounded-lg mb-2"
+            >
+              Add Test Request
+            </button>
+            <div className="text-xs mt-4 space-y-1">
+              <p>isHost: {isHost ? '✅' : '❌'}</p>
+              <p>requests.length: {requests.length}</p>
+              <p>meetingId: {meetingId}</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    return null;
+  }
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
       <div className="relative w-full max-w-md">
