@@ -14,21 +14,38 @@ export function MeetingProvider({ children }) {
     mic: "on",     // on | muted
   });
 
+  // 🎥 Auto-start camera when joining meeting
+  const [autoStartAttempted, setAutoStartAttempted] = useState(false);
+
   /* ============================
      START LOCAL STREAM
   ============================ */
   const startLocalStream = useCallback(async () => {
-    if (localStreamRef.current) return localStreamRef.current;
+    if (localStreamRef.current) {
+      console.log("♻️ Reusing existing stream");
+      return localStreamRef.current;
+    }
 
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: true,
-      audio: true,
-    });
+    console.log("🎥 Requesting camera/mic access...");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true,
+      });
 
-    localStreamRef.current = stream;
-    setLocalStream(stream);
+      console.log("✅ Media access granted", {
+        videoTracks: stream.getVideoTracks().length,
+        audioTracks: stream.getAudioTracks().length,
+      });
 
-    return stream;
+      localStreamRef.current = stream;
+      setLocalStream(stream);
+
+      return stream;
+    } catch (error) {
+      console.error("❌ Media access error:", error);
+      throw error;
+    }
   }, []);
 
   /* ============================
@@ -107,6 +124,7 @@ export function MeetingProvider({ children }) {
         // media
         localStream,
         mediaState,
+        startLocalStream, // ➕ Export this so MeetingRoom can auto-start
 
         // actions
         toggleCamera,

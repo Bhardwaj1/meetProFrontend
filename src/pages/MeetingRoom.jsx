@@ -20,12 +20,13 @@ import JoinRequestModal from "../components/meeting/JoinRequestModal";
 export default function MeetingRoom() {
   const { id: meetingId } = useParams();
   const { user } = useAuth();
-  const { participants, setParticipants } = useMeeting();
+  const { participants, setParticipants, startLocalStream, mediaState } = useMeeting();
   const [recentJoin, setRecentJoin] = useState(null);
 
   const hasJoinedRef = useRef(false);
   const retryCountRef = useRef(0);
   const retryTimerRef = useRef(null);
+  const cameraStartedRef = useRef(false);
 
   console.log("🟢 MeetingRoom mounted",participants);
 
@@ -66,6 +67,26 @@ export default function MeetingRoom() {
       disconnectSocket();
     };
   }, []);
+
+  /* ================================
+     🎥 AUTO-START CAMERA
+  ================================ */
+  useEffect(() => {
+    if (!user || cameraStartedRef.current) return;
+    if (mediaState.camera !== "off") return;
+
+    cameraStartedRef.current = true;
+    console.log("🎥 Auto-starting camera...");
+
+    startLocalStream()
+      .then(() => {
+        console.log("✅ Camera auto-started successfully");
+      })
+      .catch((err) => {
+        console.error("❌ Camera auto-start failed:", err);
+        Notify("Camera access denied. Click camera button to enable.", "warning");
+      });
+  }, [user, mediaState.camera, startLocalStream]);
 
 
 

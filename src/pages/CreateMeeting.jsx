@@ -19,19 +19,12 @@ export default function CreateMeeting() {
   /* ================================
      1️⃣ AUTO JOIN AFTER CREATE
   ================================ */
-  // useEffect(() => {
-  //   if (meetingId) {
-  //     dispatch(joinMeeting(meetingId));
-  //   }
-  // }, [meetingId, dispatch]);
-
-  /* ================================
-     2️⃣ NAVIGATE ONCE (MEETING ID IS ENOUGH)
-  ================================ */
   useEffect(() => {
     if (meetingId && !hasNavigatedRef.current) {
+      // Host should NOT call join API - they're already a participant
+      // Just navigate to the meeting room
       hasNavigatedRef.current = true;
-      Notify("Meeting created & joined successfully", "success");
+      Notify("Meeting created successfully", "success");
       navigate(`/meeting/${meetingId}`);
     }
   }, [meetingId, navigate]);
