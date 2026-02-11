@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { getSocket } from "../socket/socket";
 import { useAuth } from "../context/AuthContext";
-import { useMeeting } from "../context/MeetingContext";
+import { useMeeting } from "../context/useMeeting";
 
 import {
   connectSocket,
@@ -20,7 +20,19 @@ import JoinRequestModal from "../components/meeting/JoinRequestModal";
 export default function MeetingRoom() {
   const { id: meetingId } = useParams();
   const { user } = useAuth();
-  const { participants, setParticipants, startLocalStream, mediaState } = useMeeting();
+  const myUserId = (user?.id || user?._id || "").toString();
+  const {
+    participants,
+    setParticipants,
+    startLocalStream,
+    mediaState,
+    localStream,
+    createOffer,
+    handleWebRtcOffer,
+    handleWebRtcAnswer,
+    handleWebRtcIceCandidate,
+    removePeerConnection,
+  } = useMeeting();
   const [recentJoin, setRecentJoin] = useState(null);
 
   const hasJoinedRef = useRef(false);
@@ -124,20 +136,30 @@ export default function MeetingRoom() {
       hasJoinedRef.current = true;
       retryCountRef.current = 0;
 
-      setParticipants(
-        participants.map((p) => ({
-          id: p.id,
+      const mappedParticipants = participants.map((p) => {
+        const participantId = (p.id || p._id || "").toString();
+        return {
+          id: participantId,
           name: p.name,
-          role: p.role, // ✅ ADD THIS
+          role: p.role,
           isMuted: p.isMuted,
-          isMe: p.id === user.id,
-        })),
-      );
+          isMe: participantId === myUserId,
+          stream: null,
+        };
+      });
+
+      setParticipants(mappedParticipants);
+
+      mappedParticipants.forEach((participant) => {
+        if (participant.isMe) return;
+        if (myUserId > participant.id) return;
+        createOffer({ remoteUserId: participant.id, socket });
+      });
     };
 
     socket.on("meeting-state", handleMeetingState);
     return () => socket.off("meeting-state", handleMeetingState);
-  }, [user, setParticipants]);
+  }, [user, myUserId, setParticipants, createOffer]);
 
   /* ================================
      3️⃣ REALTIME JOIN / LEAVE
@@ -145,11 +167,11 @@ export default function MeetingRoom() {
   useEffect(() => {
     if (!user) return;
     const socket = getSocket();
-    console.log({socket})
     if (!socket) return;
 
     const handleUserJoined = ({ user: joinedUser }) => {
-      const joinedUserId = joinedUser._id || joinedUser.id;
+      const joinedUserId = (joinedUser?._id || joinedUser?.id || "").toString();
+      if (!joinedUserId) return;
       setRecentJoin(joinedUserId);
       setParticipants((prev) =>
         prev.some((p) => p.id === joinedUserId)
@@ -159,17 +181,26 @@ export default function MeetingRoom() {
               {
                 id: joinedUserId,
                 name: joinedUser.name,
+                role: joinedUser.role || "PARTICIPANT",
                 isMuted: false,
-                isMe: joinedUserId === user.id,
+                isMe: joinedUserId === myUserId,
+                stream: null,
               },
             ],
       );
+      if (myUserId <= joinedUserId) {
+        setTimeout(() => {
+          createOffer({ remoteUserId: joinedUserId, socket });
+        }, 200);
+      }
       // reset after animation duration
       setTimeout(() => setRecentJoin(null), 800);
     };
 
     const handleUserLeft = ({ userId }) => {
-      setParticipants((prev) => prev.filter((p) => p.id !== userId));
+      const leftUserId = userId?.toString();
+      removePeerConnection(leftUserId);
+      setParticipants((prev) => prev.filter((p) => p.id !== leftUserId));
     };
 
     socket.on("user-joined", handleUserJoined);
@@ -179,7 +210,7 @@ export default function MeetingRoom() {
       socket.off("user-joined", handleUserJoined);
       socket.off("user-left", handleUserLeft);
     };
-  }, [user, setParticipants]);
+  }, [user, myUserId, setParticipants, createOffer, removePeerConnection]);
 
   /* ================================
      4️⃣ MUTE / UNMUTE
@@ -210,6 +241,48 @@ export default function MeetingRoom() {
   }, [setParticipants]);
 
   /* ================================
+     4.5️⃣ WEBRTC SIGNALING
+  ================================ */
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const onOffer = async (payload) => {
+      try {
+        await handleWebRtcOffer(payload, socket);
+      } catch (error) {
+        console.error("Failed to handle WebRTC offer:", error);
+      }
+    };
+
+    const onAnswer = async (payload) => {
+      try {
+        await handleWebRtcAnswer(payload);
+      } catch (error) {
+        console.error("Failed to handle WebRTC answer:", error);
+      }
+    };
+
+    const onIceCandidate = async (payload) => {
+      try {
+        await handleWebRtcIceCandidate(payload);
+      } catch (error) {
+        console.error("Failed to handle ICE candidate:", error);
+      }
+    };
+
+    socket.on("webrtc-offer", onOffer);
+    socket.on("webrtc-answer", onAnswer);
+    socket.on("webrtc-ice-candidate", onIceCandidate);
+
+    return () => {
+      socket.off("webrtc-offer", onOffer);
+      socket.off("webrtc-answer", onAnswer);
+      socket.off("webrtc-ice-candidate", onIceCandidate);
+    };
+  }, [handleWebRtcOffer, handleWebRtcAnswer, handleWebRtcIceCandidate]);
+
+  /* ================================
      5️⃣ MEETING ERROR
   ================================ */
   useEffect(() => {
@@ -218,7 +291,7 @@ export default function MeetingRoom() {
 
     const MAX_RETRY = 3;
 
-    const handleMeetingError = (error) => {
+    const handleMeetingError = () => {
       if (hasJoinedRef.current) return;
 
       if (retryCountRef.current < MAX_RETRY) {
@@ -295,6 +368,7 @@ export default function MeetingRoom() {
               name={p.name}
               isMe={p.isMe}
               isMuted={p.isMuted}
+              stream={p.isMe ? localStream : p.stream}
               onMute={() => hostMuteUser(meetingId, p.id)}
               onUnmute={() => hostUnmuteUser(meetingId, p.id)}
               animate={p.id === recentJoin}

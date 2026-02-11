@@ -18,3 +18,12 @@ export const meetingHistoryService = {
     return res.data;
   },
 };
+
+export const exportMeetingHistory = async (filters = {}) => {
+  const res = await api.get("/meeting-history/export", {
+    params: filters,
+    responseType: "blob", // 🔥 important
+  });
+
+  return res.data;
+};

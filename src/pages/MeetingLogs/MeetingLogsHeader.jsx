@@ -1,6 +1,6 @@
 import React from "react";
 
-const MeetingLogsHeader = () => {
+const MeetingLogsHeader = ({ onExport }) => {
   return (
     <div className="flex items-center justify-between">
       <div>
@@ -10,7 +10,10 @@ const MeetingLogsHeader = () => {
         </p>
       </div>
 
-      <button className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 text-sm font-medium hover:opacity-90 transition">
+      <button
+        className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 text-sm font-medium hover:opacity-90 transition"
+        onClick={onExport}
+      >
         Export Excel
       </button>
     </div>

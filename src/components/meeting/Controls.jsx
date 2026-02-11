@@ -2,7 +2,7 @@
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { leaveMeeting } from "../../store/slices/meetingSlice";
-import { useMeeting } from "../../context/MeetingContext";
+import { useMeeting } from "../../context/useMeeting";
 import { Notify } from "../../utils/notify";
 import { leaveMeetingRoom } from "../../socket/socketEvents";
 import { Mic, MicOff, Video, VideoOff, PhoneOff } from "lucide-react";

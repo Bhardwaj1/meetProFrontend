@@ -4,12 +4,17 @@ import MeetingLogsHeader from "./MeetingLogsHeader";
 import MeetingLogsFilters from "./MeetingLogsFilters";
 import MeetingLogsTable from "./MeetingLogsTable";
 import { getMeetingHistory } from "../../store/slices/meetingHistorySlice";
+import { useAuth } from "../../context/AuthContext";
+import { exportMeetingHistory } from "../../services/meetingHistoryService";
 
 const MeetingLogs = () => {
   const dispatch = useDispatch();
+  const { user } = useAuth();
   const { loading, meetingHistory, meta } = useSelector(
-    (state) => state.meetingHistory
+    (state) => state.meetingHistory,
   );
+
+  console.log({ user });
 
   // ✅ Server is source of truth
   const page = Number(meta?.page) || 1;
@@ -66,7 +71,7 @@ const MeetingLogs = () => {
       getMeetingHistory({
         ...queryParams,
         page: nextPage,
-      })
+      }),
     );
   };
 
@@ -77,7 +82,7 @@ const MeetingLogs = () => {
         ...queryParams,
         page: 1,
         limit: nextPageSize,
-      })
+      }),
     );
   };
 
@@ -89,13 +94,34 @@ const MeetingLogs = () => {
         page: 1,
         limit: pageSize,
         ...nextFilters,
-      })
+      }),
     );
+  };
+
+  const handleExport = async () => {
+    try {
+      const blob = await exportMeetingHistory({
+        search: debouncedSearch,
+        fromDate: filters.fromDate,
+        toDate: filters.toDate,
+        status: filters.status,
+      });
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "meeting-history.xlsx");
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      console.error("Export failed", err);
+    }
   };
 
   return (
     <div className="p-6 space-y-6 text-white">
-      <MeetingLogsHeader />
+      <MeetingLogsHeader onExport={handleExport} />
       <MeetingLogsFilters values={filters} onChange={handleFiltersChange} />
       <MeetingLogsTable
         loading={loading}
