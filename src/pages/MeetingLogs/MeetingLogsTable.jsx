@@ -1,50 +1,68 @@
-
-
 import Table from "../../components/Table/Table";
 
-import React ,{ useEffect, useState } from "react";
+import React, { useMemo, useState } from "react";
 import MeetingDetailsDrawer from "./MeetingDetailsDrawer";
 import StatusPill from "../../components/StatusPill";
 
-const MeetingLogsTable = () => {
-  const [loading, setLoading] = useState(true);
-  const [logs, setLogs] = useState([]);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
-  const [total, setTotal] = useState(0);
+const formatDateTime = (value) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString();
+};
+
+const formatDuration = (start, end) => {
+  if (!start || !end) return "-";
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    return "-";
+  }
+
+  const diffMs = Math.max(0, endDate.getTime() - startDate.getTime());
+  const totalMinutes = Math.floor(diffMs / (1000 * 60));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours > 0 && minutes > 0) return `${hours}h ${minutes}m`;
+  if (hours > 0) return `${hours}h`;
+  return `${minutes}m`;
+};
+
+const MeetingLogsTable = ({
+  loading,
+  meetingHistory,
+  meta,
+  page,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
+}) => {
   const [selectedMeeting, setSelectedMeeting] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setLogs([
-        {
-          id: "MTG-101",
-          host: "Gaurav",
-          start: "10:00 AM",
-          end: "10:45 AM",
-          duration: "45 mins",
-          users: 6,
-          status: "Completed",
-        },
-      ]);
-      setTotal(120);
-      setLoading(false);
-    }, 1000);
+  const logs = useMemo(
+    () =>
+      (meetingHistory || []).map((item) => ({
+        ...item,
+        id: item.meetingId,
+        host: item.user?.name || "-",
+        start: formatDateTime(item.joinedAt),
+        end: formatDateTime(item.leftAt),
+        duration: formatDuration(item.joinedAt, item.leftAt),
+        users: 1,
+        role: item.role || "-",
+        status: item.leftAt ? "Completed" : "Ongoing",
+      })),
+    [meetingHistory]
+  );
 
-    return () => clearTimeout(timer);
-  }, [page, pageSize]);
-
-  const onPageChange = (newPage) => {
-    setLoading(true);
-    setPage(newPage);
-  };
-
-  const onPageSizeChange = (size) => {
-    setLoading(true);
-    setPage(1);
-    setPageSize(size);
-  };
+  const total = Number(meta?.total || 0);
+  const pageSizeOptions = useMemo(() => {
+    const currentLimit = Number(meta?.limit || pageSize || 20);
+    const defaults = [10, 20, 50, 100];
+    return [...new Set([currentLimit, ...defaults])].sort((a, b) => a - b);
+  }, [meta?.limit, pageSize]);
 
   const handleRowClick = (meeting) => {
     setSelectedMeeting(meeting);
@@ -57,7 +75,8 @@ const MeetingLogsTable = () => {
 
   const columns = [
     { key: "id", label: "Meeting ID" },
-    { key: "host", label: "Host" },
+    { key: "host", label: "User" },
+    { key: "role", label: "Role", align: "center" },
     { key: "start", label: "Start", align: "center" },
     { key: "end", label: "End", align: "center" },
     { key: "duration", label: "Duration", align: "center" },
@@ -84,6 +103,7 @@ const MeetingLogsTable = () => {
           page,
           pageSize,
           total,
+          pageSizeOptions,
           onPageChange,
           onPageSizeChange,
         }}

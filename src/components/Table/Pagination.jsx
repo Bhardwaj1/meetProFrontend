@@ -3,6 +3,7 @@ const Pagination = ({
   page,
   pageSize,
   total,
+  pageSizeOptions = [25, 50, 100],
   onPageChange,
   onPageSizeChange,
 }) => {
@@ -20,7 +21,7 @@ const Pagination = ({
           onChange={(e) => onPageSizeChange(Number(e.target.value))}
           className="bg-black/30 border border-white/10 rounded-md px-2 py-1 text-sm"
         >
-          {[25, 50, 100].map((size) => (
+          {pageSizeOptions.map((size) => (
             <option key={size} value={size}>
               {size}
             </option>
