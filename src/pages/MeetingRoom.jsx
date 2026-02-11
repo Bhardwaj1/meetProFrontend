@@ -16,6 +16,7 @@ import Controls from "../components/meeting/Controls";
 import { Notify } from "../utils/notify";
 import MeetingTime from "../components/meeting/MeetingTime";
 import JoinRequestModal from "../components/meeting/JoinRequestModal";
+import ChatPanel from "../components/meeting/ChatPanel";
 
 export default function MeetingRoom() {
   const { id: meetingId } = useParams();
@@ -39,6 +40,7 @@ export default function MeetingRoom() {
   const retryCountRef = useRef(0);
   const retryTimerRef = useRef(null);
   const cameraStartedRef = useRef(false);
+  const [showChat, setShowChat] = useState(false);
 
   console.log("🟢 MeetingRoom mounted",participants);
 
@@ -339,28 +341,29 @@ export default function MeetingRoom() {
      UI
   ================================ */
   return (
-    <div className="h-screen flex flex-col bg-[#020617] text-white">
-      {/* 🔔 HOST JOIN REQUEST MODAL */}
-      <JoinRequestModal meetingId={meetingId} isHost={isHost} />
+  <div className="h-screen flex flex-col bg-[#020617] text-white">
+    {/* 🔔 HOST JOIN REQUEST MODAL */}
+    <JoinRequestModal meetingId={meetingId} isHost={isHost} />
 
-      {/* HEADER */}
-      <div className="h-14 flex items-center justify-between px-6 bg-white/5 border-b border-white/10">
-        <h1 className="font-semibold">🎥 Meeting in progress</h1>
-        <span className="text-xs text-gray-400">
-          ID: {meetingId} | Users: {participants.length}
-        </span>
-      </div>
+    {/* HEADER */}
+    <div className="h-14 flex items-center justify-between px-6 bg-white/5 border-b border-white/10">
+      <h1 className="font-semibold">🎥 Meeting in progress</h1>
+      <span className="text-xs text-gray-400">
+        ID: {meetingId} | Users: {participants.length}
+      </span>
+    </div>
 
-      {/* VIDEO GRID */}
+    {/* MAIN CONTENT AREA */}
+    <div className="flex flex-1 overflow-hidden">
+
+      {/* VIDEO AREA */}
       <div className="flex-1 p-4 overflow-hidden">
         <div
           className={`
-    grid gap-4 h-full
-    ${getGridLayout(participants.length)}
-  `}
-          style={{
-            gridAutoRows: "1fr",
-          }}
+            grid gap-4 h-full
+            ${getGridLayout(participants.length)}
+          `}
+          style={{ gridAutoRows: "1fr" }}
         >
           {participants.map((p) => (
             <VideoTile
@@ -377,15 +380,41 @@ export default function MeetingRoom() {
         </div>
       </div>
 
-      {/* CONTROLS */}
-      <div className="sticky bottom-0 z-40 relative">
-        <MeetingTime />
-        <div className="mx-auto max-w-3xl px-6 pb-6">
-          <div className="shadow-xl">
-            <Controls />
-          </div>
+      {/* DESKTOP CHAT PANEL */}
+      <div className="hidden md:block w-80 border-l border-white/10 bg-[#0f172a]">
+        <ChatPanel />
+      </div>
+    </div>
+
+    {/* MOBILE CHAT TOGGLE BUTTON */}
+    <div className="md:hidden fixed bottom-24 right-4 z-50">
+      <button
+        onClick={() => setShowChat((prev) => !prev)}
+        className="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-full shadow-lg transition"
+      >
+        💬
+      </button>
+    </div>
+
+    {/* MOBILE CHAT DRAWER */}
+    {showChat && (
+      <div className="md:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40 flex justify-end">
+        <div className="w-80 h-full bg-[#0f172a] shadow-xl">
+          <ChatPanel />
+        </div>
+      </div>
+    )}
+
+    {/* CONTROLS */}
+    <div className="sticky bottom-0 z-40 relative">
+      <MeetingTime />
+      <div className="mx-auto max-w-3xl px-6 pb-6">
+        <div className="shadow-xl">
+          <Controls />
         </div>
       </div>
     </div>
-  );
+  </div>
+);
+
 }

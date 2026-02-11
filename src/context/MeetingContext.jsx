@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useRef,
   useState,
 } from "react";
@@ -49,19 +50,22 @@ export function MeetingProvider({ children }) {
     return stream;
   }, []);
 
-  const closePeerConnection = useCallback((userId) => {
-    const pc = peerConnectionsRef.current[userId];
-    if (!pc) return;
+  const closePeerConnection = useCallback(
+    (userId) => {
+      const pc = peerConnectionsRef.current[userId];
+      if (!pc) return;
 
-    pc.onicecandidate = null;
-    pc.ontrack = null;
-    pc.close();
+      pc.onicecandidate = null;
+      pc.ontrack = null;
+      pc.close();
 
-    delete peerConnectionsRef.current[userId];
-    delete remoteStreamsRef.current[userId];
+      delete peerConnectionsRef.current[userId];
+      delete remoteStreamsRef.current[userId];
 
-    syncParticipantStream(userId, null);
-  }, [syncParticipantStream]);
+      syncParticipantStream(userId, null);
+    },
+    [syncParticipantStream],
+  );
 
   const stopLocalStream = useCallback(() => {
     if (!localStreamRef.current) return;
@@ -108,70 +112,87 @@ export function MeetingProvider({ children }) {
     }));
   }, []);
 
-  const createPeerConnection = useCallback((userId) => {
-    if (peerConnectionsRef.current[userId]) {
-      return peerConnectionsRef.current[userId];
-    }
+  const createPeerConnection = useCallback(
+    (userId) => {
+      if (peerConnectionsRef.current[userId]) {
+        return peerConnectionsRef.current[userId];
+      }
 
-    const pc = new RTCPeerConnection({
-      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-    });
-
-    pc.onicecandidate = (event) => {
-      if (!event.candidate) return;
-
-      const socket = getSocket();
-      if (!socket) return;
-
-      socket.emit("webrtc-ice-candidate", {
-        targetUserId: userId,
-        candidate: event.candidate,
+      const pc = new RTCPeerConnection({
+        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
       });
-    };
 
-    pc.ontrack = (event) => {
-      const stream = event.streams[0];
-      if (!stream) return;
+      pc.onicecandidate = (event) => {
+        if (!event.candidate) return;
 
-      remoteStreamsRef.current[userId] = stream;
-      syncParticipantStream(userId, stream);
-    };
+        const socket = getSocket();
+        if (!socket) return;
 
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach((track) => {
-        pc.addTrack(track, localStreamRef.current);
+        socket.emit("webrtc-ice-candidate", {
+          targetUserId: userId,
+          candidate: event.candidate,
+        });
+      };
+
+      pc.ontrack = (event) => {
+        console.log("🎥 Remote track received from:", userId);
+        const stream = event.streams[0];
+        if (!stream) return;
+
+        remoteStreamsRef.current[userId] = stream;
+        syncParticipantStream(userId, stream);
+      };
+
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach((track) => {
+          pc.addTrack(track, localStreamRef.current);
+        });
+      }
+
+      peerConnectionsRef.current[userId] = pc;
+      return pc;
+    },
+    [syncParticipantStream],
+  );
+
+  const createOffer = useCallback(
+    async ({ remoteUserId, socket }) => {
+      if (!localStreamRef.current) {
+        console.warn("Local stream not ready, delaying offer...");
+        return;
+      }
+
+      console.log({ remoteUserId });
+
+      const pc = createPeerConnection(remoteUserId);
+
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      socket.emit("webrtc-offer", {
+        targetUserId: remoteUserId,
+        offer,
       });
-    }
+    },
+    [createPeerConnection],
+  );
 
-    peerConnectionsRef.current[userId] = pc;
-    return pc;
-  }, [syncParticipantStream]);
+  const handleWebRtcOffer = useCallback(
+    async ({ from, offer }, socket) => {
+      const pc = createPeerConnection(from);
 
-  const createOffer = useCallback(async ({ remoteUserId, socket }) => {
-    const pc = createPeerConnection(remoteUserId);
+      await pc.setRemoteDescription(new RTCSessionDescription(offer));
 
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
 
-    socket.emit("webrtc-offer", {
-      targetUserId: remoteUserId,
-      offer,
-    });
-  }, [createPeerConnection]);
-
-  const handleWebRtcOffer = useCallback(async ({ from, offer }, socket) => {
-    const pc = createPeerConnection(from);
-
-    await pc.setRemoteDescription(new RTCSessionDescription(offer));
-
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-
-    socket.emit("webrtc-answer", {
-      targetUserId: from,
-      answer,
-    });
-  }, [createPeerConnection]);
+      socket.emit("webrtc-answer", {
+        targetUserId: from,
+        answer,
+      });
+    },
+    [createPeerConnection],
+  );
 
   const handleWebRtcAnswer = useCallback(async ({ from, answer }) => {
     const pc = peerConnectionsRef.current[from];
@@ -187,9 +208,12 @@ export function MeetingProvider({ children }) {
     await pc.addIceCandidate(new RTCIceCandidate(candidate));
   }, []);
 
-  const removePeerConnection = useCallback((userId) => {
-    closePeerConnection(userId);
-  }, [closePeerConnection]);
+  const removePeerConnection = useCallback(
+    (userId) => {
+      closePeerConnection(userId);
+    },
+    [closePeerConnection],
+  );
 
   const leaveSession = useCallback(() => {
     Object.keys(peerConnectionsRef.current).forEach((userId) => {
@@ -200,6 +224,22 @@ export function MeetingProvider({ children }) {
     stopLocalStream();
     setMediaState({ camera: "off", mic: "on" });
   }, [closePeerConnection, stopLocalStream]);
+
+  useEffect(() => {
+    if (!localStreamRef.current) return;
+
+    Object.values(peerConnectionsRef.current).forEach((pc) => {
+      localStreamRef.current.getTracks().forEach((track) => {
+        const alreadyAdded = pc
+          .getSenders()
+          .some((sender) => sender.track === track);
+
+        if (!alreadyAdded) {
+          pc.addTrack(track, localStreamRef.current);
+        }
+      });
+    });
+  }, [localStream]);
 
   return (
     <MeetingContext.Provider
