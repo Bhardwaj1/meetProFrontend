@@ -25,6 +25,22 @@ export function MeetingProvider({ children }) {
     mic: "on", // on | muted
   });
 
+  // Chat
+  const [messages, setMessages] = useState([]);
+
+  const sendMessage = useCallback((meetingId, text) => {
+    const socket = getSocket();
+
+    if (!socket || !text.trim()) {
+      return;
+    }
+
+    socket.emit("chat-message", {
+      meetingId,
+      message: text,
+    });
+  }, []);
+
   const syncParticipantStream = useCallback((userId, stream) => {
     setParticipants((prev) =>
       prev.map((p) =>
@@ -241,6 +257,25 @@ export function MeetingProvider({ children }) {
     });
   }, [localStream]);
 
+  // Chat
+
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) {
+      return;
+    }
+
+    const handleIncomingMessage = (msg) => {
+      setMessages((prev) => [...prev, msg]);
+    };
+
+    socket.on("chat-message", handleIncomingMessage);
+
+    return () => {
+      socket.off("chat-message", handleIncomingMessage);
+    };
+  }, []);
+
   return (
     <MeetingContext.Provider
       value={{
@@ -257,6 +292,9 @@ export function MeetingProvider({ children }) {
         handleWebRtcAnswer,
         handleWebRtcIceCandidate,
         removePeerConnection,
+        messages,
+        sendMessage,
+
       }}
     >
       {children}
