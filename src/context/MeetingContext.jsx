@@ -260,19 +260,74 @@ export function MeetingProvider({ children }) {
   // Chat
 
   useEffect(() => {
-    const socket = getSocket();
-    if (!socket) {
-      return;
-    }
+    let isAttached = false;
+    let detach = () => {};
 
-    const handleIncomingMessage = (msg) => {
-      setMessages((prev) => [...prev, msg]);
+    const formatTime = (timestamp) => {
+      const date = timestamp ? new Date(timestamp) : new Date();
+      return date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
     };
 
-    socket.on("chat-message", handleIncomingMessage);
+    const tryAttachListener = () => {
+      if (isAttached) return true;
+
+      const socket = getSocket();
+      if (!socket) return false;
+
+      const handleIncomingMessage = (msg = {}) => {
+        const text = (msg.text ?? msg.message ?? "").toString();
+        if (!text.trim()) return;
+
+        const normalizedMessage = {
+          userId: msg.userId ?? msg.senderId ?? null,
+          sender: msg.sender ?? msg.name ?? "Unknown",
+          text,
+          time: msg.time ?? formatTime(msg.timestamp),
+          timestamp: msg.timestamp ?? Date.now(),
+        };
+
+        setMessages((prev) => [...prev, normalizedMessage]);
+      };
+
+      const handleChatHistory = (history = []) => {
+        const formatted = history.map((msg) => {
+          return {
+            userId: msg?.userId ?? msg?.sender?._id ?? null,
+            sender: msg.sender ?? msg.sender?.name ?? "Unknown",
+            text: msg.text,
+            time: msg?.time ?? formatTime(msg?.createdAt),
+            timestamp: msg.createdAt ?? Date.now(),
+          };
+        });
+        setMessages(formatted);
+      };
+
+      socket.on("chat-message", handleIncomingMessage);
+      socket.on("chat-history", handleChatHistory);
+      detach = () => {
+        socket.off("chat-message", handleIncomingMessage);
+        socket.off("chat-history",handleChatHistory)
+      };
+      isAttached = true;
+      return true;
+    };
+
+    if (tryAttachListener()) {
+      return () => detach();
+    }
+
+    const timer = setInterval(() => {
+      if (tryAttachListener()) {
+        clearInterval(timer);
+      }
+    }, 500);
 
     return () => {
-      socket.off("chat-message", handleIncomingMessage);
+      clearInterval(timer);
+      detach();
     };
   }, []);
 
@@ -294,7 +349,6 @@ export function MeetingProvider({ children }) {
         removePeerConnection,
         messages,
         sendMessage,
-
       }}
     >
       {children}

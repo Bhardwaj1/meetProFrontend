@@ -293,19 +293,22 @@ export default function MeetingRoom() {
 
     const MAX_RETRY = 3;
 
-    const handleMeetingError = () => {
+    const handleMeetingError = (error = {}) => {
       if (hasJoinedRef.current) return;
+      const message = error?.message || "Unable to join meeting";
 
       if (retryCountRef.current < MAX_RETRY) {
         retryCountRef.current += 1;
-        Notify(`Retry ${retryCountRef.current}/${MAX_RETRY}`, "warning");
+        Notify(
+          `${message} (retry ${retryCountRef.current}/${MAX_RETRY})`,
+          "warning",
+        );
 
         retryTimerRef.current = setTimeout(() => {
           socket.emit("join-meeting", { meetingId });
         }, 1000);
       } else {
         Notify("Meeting unavailable. Redirecting…", "error");
-        socket.emit("leave-meeting", { meetingId });
         setTimeout(() => (window.location.href = "/"), 1200);
       }
     };

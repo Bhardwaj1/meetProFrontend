@@ -27,7 +27,7 @@ export default function Dashboard() {
 
           <Button
             className="w-full py-4 text-base font-bold bg-white text-blue-600 hover:bg-gray-100"
-            onClick={() => navigate("/create")}
+            onClick={() => navigate("/create-meeting")}
           >
             Create Meeting
           </Button>
@@ -42,22 +42,22 @@ export default function Dashboard() {
 
           <Button
             className="w-full py-4 text-base font-semibold bg-gradient-to-r from-indigo-500 to-purple-600 hover:opacity-90"
-            onClick={() => navigate("/join")}
+            onClick={() => navigate("/join-meeting")}
           >
             Join Meeting
           </Button>
         </div>
 
         {/* HISTORY */}
-        <div className="rounded-3xl p-7 bg-white/5 border border-white/10 opacity-60">
+        <div className="rounded-3xl p-7 bg-white/5 border border-white/10">
           <h2 className="text-xl font-semibold mb-2">📁 Meeting History</h2>
           <p className="text-gray-400 mb-8 text-sm">
             View your past meetings (coming soon)
           </p>
 
           <Button
-            className="w-full py-4 cursor-not-allowed opacity-60"
-            disabled
+            className="w-full py-4 text-base font-semibold bg-white/10 hover:bg-white/15 transition"
+            onClick={() => navigate("/meeting-logs")}
           >
             View History
           </Button>
