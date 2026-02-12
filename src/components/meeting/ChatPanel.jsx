@@ -1,5 +1,4 @@
-import { useState } from "react";
-import Button from "../common/Button";
+import { useState, useRef, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { useMeeting } from "../../context/MeetingContext";
 import { useAuth } from "../../context/AuthContext";
@@ -8,7 +7,9 @@ export default function ChatPanel() {
   const { id: meetingId } = useParams();
   const { messages, sendMessage } = useMeeting();
   const { user } = useAuth();
+
   const [text, setText] = useState("");
+  const bottomRef = useRef(null);
 
   const handleSend = () => {
     if (!text.trim()) return;
@@ -16,18 +17,27 @@ export default function ChatPanel() {
     setText("");
   };
 
+  console.log({messages})
+
+  // 🔥 Auto scroll to bottom
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
   return (
     <div className="h-full flex flex-col bg-[#0b1220] text-white">
       {/* HEADER */}
       <div className="px-4 py-3 border-b border-white/10 bg-white/5 flex items-center justify-between">
-        <h2 className="font-semibold text-sm tracking-wide">💬 Meeting Chat</h2>
+        <h2 className="font-semibold text-sm tracking-wide">
+          💬 Meeting Chat
+        </h2>
         <span className="text-xs text-gray-400">
           {messages.length} messages
         </span>
       </div>
 
       {/* MESSAGES */}
-      <div className="flex-1 p-4 overflow-y-auto space-y-4 scrollbar-thin scrollbar-thumb-gray-700">
+      <div className="flex-1 p-4 overflow-y-auto space-y-4">
         {messages.length === 0 && (
           <p className="text-gray-500 text-sm text-center mt-6">
             No messages yet
@@ -35,7 +45,7 @@ export default function ChatPanel() {
         )}
 
         {messages.map((msg, i) => {
-          const isMe = msg.isMe;
+          const isMe = msg.userId === user?.id || msg.userId === user?._id;
 
           return (
             <div
@@ -50,7 +60,9 @@ export default function ChatPanel() {
                 }`}
               >
                 {!isMe && (
-                  <p className="text-xs text-blue-400 mb-1">{msg.sender}</p>
+                  <p className="text-xs text-blue-400 mb-1">
+                    {msg.sender}
+                  </p>
                 )}
 
                 <p className="break-words">{msg.text}</p>
@@ -62,6 +74,8 @@ export default function ChatPanel() {
             </div>
           );
         })}
+
+        <div ref={bottomRef} />
       </div>
 
       {/* INPUT */}
@@ -70,13 +84,13 @@ export default function ChatPanel() {
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
-            className="flex-1 px-3 py-2 rounded-lg bg-gray-700 focus:outline-none"
+            className="flex-1 px-3 py-2 bg-transparent focus:outline-none text-sm"
             placeholder="Type message..."
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
           />
 
           <button
-            onClick={sendMessage}
+            onClick={handleSend}
             className="px-4 py-1.5 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 text-xs font-medium hover:opacity-90 transition"
           >
             Send
