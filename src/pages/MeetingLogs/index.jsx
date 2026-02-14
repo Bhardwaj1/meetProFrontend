@@ -120,7 +120,7 @@ const MeetingLogs = () => {
   };
 
   return (
-    <div className="p-6 space-y-6 text-white">
+    <div className="p-4 sm:p-6 space-y-6 text-white max-w-full overflow-x-hidden">
       <MeetingLogsHeader onExport={handleExport} />
       <MeetingLogsFilters values={filters} onChange={handleFiltersChange} />
       <MeetingLogsTable

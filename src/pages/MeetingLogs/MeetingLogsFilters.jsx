@@ -10,7 +10,7 @@ const MeetingLogsFilters = ({ values, onChange }) => {
 
   return (
     <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-xl p-4">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <input
           placeholder="Search Meeting ID / Host"
           value={values.search}
