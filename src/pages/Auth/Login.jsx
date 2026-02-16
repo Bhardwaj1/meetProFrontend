@@ -43,6 +43,12 @@ export default function Login() {
     dispatch(loginUser({ email: form.email, password: form.password }));
   };
 
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter") {
+      handleLogin();
+    }
+  };
+
   // ❌ API Error
   useEffect(() => {
     if (error) Notify(error, "error");
@@ -82,7 +88,7 @@ export default function Login() {
           </div>
 
           {/* Form */}
-          <div className="space-y-4">
+          <div className="space-y-4" onKeyPress={handleKeyPress}>
             <Input
               placeholder="Email address"
               type="email"
