@@ -7,6 +7,7 @@ import { Notify } from "../utils/notify";
 import MeetingDateTimeInput from "../components/MeetingDateTimeInput";
 import CalendarInput from "../components/Calendar/CalendarInput";
 import TimeInput from "../components/TimeInput";
+import InviteUsersInput from "../components/common/InviteUsersInput";
 
 export default function CreateMeeting() {
   const dispatch = useDispatch();
@@ -17,6 +18,7 @@ export default function CreateMeeting() {
 
   const [mode, setMode] = useState("INSTANT");
   const [selectedDate, setSelectedDate] = useState(null);
+  const [participants, setParticipants] = useState([]);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -58,6 +60,7 @@ export default function CreateMeeting() {
         description: formData.description,
         startTime: selectedDate,
         endTime,
+        participants,
       }),
     );
   };
@@ -144,6 +147,16 @@ export default function CreateMeeting() {
                   setFormData({ ...formData, title: e.target.value })
                 }
               />
+              <div>
+                <label className="text-sm text-gray-400 mb-2 block">
+                  Invite Participants
+                </label>
+
+                <InviteUsersInput
+                  emails={participants}
+                  setEmails={setParticipants}
+                />
+              </div>
 
               <div>
                 <label className="text-sm text-gray-400 mb-2 block">
