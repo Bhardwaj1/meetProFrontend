@@ -1,80 +1,95 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { createMeeting } from "../store/slices/meetingSlice";
+import { createMeeting, scheduleMeeting } from "../store/slices/meetingSlice";
 import Button from "../components/common/Button";
 import { Notify } from "../utils/notify";
-import MeetingDateTimeInput from "../components/MeetingDateTimeInput";
 import CalendarInput from "../components/Calendar/CalendarInput";
 import TimeInput from "../components/TimeInput";
 import InviteUsersInput from "../components/common/InviteUsersInput";
 
+const initialFormData = {
+  title: "",
+  duration: 30,
+  description: "",
+};
+
 export default function CreateMeeting() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const hasNavigatedRef = useRef(false);
 
-  const { loading, meetingId } = useSelector((state) => state.meeting);
+  const { loading } = useSelector((state) => state.meeting);
 
   const [mode, setMode] = useState("INSTANT");
   const [selectedDate, setSelectedDate] = useState(null);
-  const [participants, setParticipants] = useState([]);
-
-  const [formData, setFormData] = useState({
-    title: "",
-    duration: 30,
-    description: "",
-  });
+  const [invitedUserInputs, setInvitedUserInputs] = useState([]);
+  const [formData, setFormData] = useState(initialFormData);
 
   /* ================================
      Instant Meeting
   ================================ */
-  const handleInstantMeeting = () => {
-    dispatch(createMeeting({ type: "INSTANT" }));
+  const handleInstantMeeting = async () => {
+    try {
+      const response = await dispatch(createMeeting()).unwrap();
+      Notify("Meeting created successfully", "success");
+      navigate(`/meeting/${response.meetingId}`);
+    } catch (error) {
+      Notify(error || "Unable to create meeting", "error");
+    }
   };
 
   /* ================================
      Schedule Meeting
   ================================ */
-  const handleScheduleMeeting = () => {
+  const handleScheduleMeeting = async () => {
+    const invitedUsers = invitedUserInputs.map((value) => value.trim());
+
     if (!selectedDate) {
-      return Notify("Please select date & time", "error");
+      return Notify("Please select date & time", "warning");
     }
 
     if (!formData.title.trim()) {
-      return Notify("Meeting title is required", "error");
+      return Notify("Meeting title is required", "warning");
     }
 
     if (formData.duration < 5) {
-      return Notify("Minimum duration is 5 minutes", "error");
+      return Notify("Minimum duration is 5 minutes", "warning");
+    }
+
+    if (invitedUsers.length === 0) {
+      return Notify("At least one invited user is required", "warning");
     }
 
     const endTime = new Date(
       selectedDate.getTime() + formData.duration * 60000,
     );
 
-    dispatch(
-      createMeeting({
-        type: "SCHEDULED",
-        title: formData.title,
-        description: formData.description,
-        startTime: selectedDate,
-        endTime,
-        participants,
-      }),
-    );
+    if (endTime <= new Date()) {
+      return Notify("Meeting end time must be in the future", "warning");
+    }
+
+    try {
+      await dispatch(
+        scheduleMeeting({
+          title: formData.title,
+          description: formData.description,
+          scheduledAt: selectedDate.toISOString(),
+          duration: formData.duration,
+          invitedUsers,
+        }),
+      ).unwrap();
+
+      setFormData(initialFormData);
+      setSelectedDate(null);
+      setInvitedUserInputs([]);
+      Notify("Meeting scheduled successfully", "success");
+      navigate("/meeting-logs");
+    } catch (error) {
+      Notify(error || "Unable to schedule meeting", "error");
+    }
   };
 
-  /* ================================
-     Auto Redirect After Create
-  ================================ */
-  useEffect(() => {
-    if (meetingId && !hasNavigatedRef.current) {
-      hasNavigatedRef.current = true;
-      Notify("Meeting created successfully", "success");
-      navigate(`/meeting/${meetingId}`);
-    }
-  }, [meetingId, navigate]);
+  console.log({invitedUserInputs})
 
   /* ================================
      Custom Date Input (Premium Look)
@@ -153,8 +168,8 @@ export default function CreateMeeting() {
                 </label>
 
                 <InviteUsersInput
-                  emails={participants}
-                  setEmails={setParticipants}
+                  emails={invitedUserInputs}
+                  setEmails={setInvitedUserInputs}
                 />
               </div>
 

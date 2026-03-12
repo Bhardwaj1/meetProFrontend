@@ -8,15 +8,32 @@ import api from "./api";
  */
 
 export const meetingService = {
-  /**
-   * Create a meeting (instant or scheduled)
-   * @param {Object} payload
-   * @param {"INSTANT"|"SCHEDULED"} payload.type
-   * @param {string=} payload.title
-   * @param {string=} payload.startsAt (ISO string, for scheduled)
-   */
-  create: async (payload = { type: "INSTANT" }) => {
-    const res = await api.post("/meeting/create-meeting", payload);
+  createInstant: async () => {
+    const res = await api.post("/meeting/create-meeting");
+    return res.data;
+  },
+
+  schedule: async ({
+    title,
+    description,
+    scheduledAt,
+    duration,
+    invitedUsers = [],
+  }) => {
+    const res = await api.post("/meeting/schedule-meeting", {
+      title,
+      description,
+      scheduledAt,
+      duration,
+      invitedUsers,
+    });
+    return res.data;
+  },
+
+  start: async ({ meetingId }) => {
+    const res = await api.post("/meeting/start-meeting", {
+      meetingId,
+    });
     return res.data;
   },
 
@@ -51,7 +68,9 @@ export const meetingService = {
    * @param {string} payload.meetingId
    */
   end: async ({ meetingId }) => {
-    const res = await api.post(`/meeting/${meetingId}/end-meeting`);
+    const res = await api.post("/meeting/end-meeting", {
+      meetingId,
+    });
     return res.data;
   },
 

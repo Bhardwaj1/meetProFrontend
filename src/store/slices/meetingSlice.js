@@ -1,18 +1,33 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { meetingService } from "../../services/meetingService";
 
-/**
- * NOTE:
- * We are assuming backend response shape like:
- * { success: true, data: {...}, message?: "" }
- * If your backend differs, we only update the mapping in fulfilled reducers.
- */
-
 export const createMeeting = createAsyncThunk(
-  "meeting/create",
+  "meeting/createInstant",
   async (payload, { rejectWithValue }) => {
     try {
-      return await meetingService.create(payload);
+      return await meetingService.createInstant(payload);
+    } catch (error) {
+      return rejectWithValue(error);
+    }
+  }
+);
+
+export const scheduleMeeting = createAsyncThunk(
+  "meeting/schedule",
+  async (payload, { rejectWithValue }) => {
+    try {
+      return await meetingService.schedule(payload);
+    } catch (error) {
+      return rejectWithValue(error);
+    }
+  }
+);
+
+export const startMeeting = createAsyncThunk(
+  "meeting/start",
+  async ({ meetingId }, { rejectWithValue }) => {
+    try {
+      return await meetingService.start({ meetingId });
     } catch (error) {
       return rejectWithValue(error);
     }
@@ -68,6 +83,7 @@ const meetingSlice = createSlice({
   initialState: {
     loading: false,
     error: null,
+    scheduledMeeting: null,
 
     // Current meeting context
     currentMeeting: null, // { meetingId, hostId, participants, ... }
@@ -79,6 +95,7 @@ const meetingSlice = createSlice({
     },
     clearCurrentMeeting: (state) => {
       state.currentMeeting = null;
+      state.scheduledMeeting = null;
       state.meetingId = null;
       state.error = null;
       state.loading = false;
@@ -94,9 +111,38 @@ const meetingSlice = createSlice({
       .addCase(createMeeting.fulfilled, (state, action) => {
         state.loading = false;
         state.meetingId = action.payload?.meetingId || null;
-        state.currentMeeting = action.payload?.data || null;
+        state.currentMeeting = action.payload || null;
       })
       .addCase(createMeeting.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      // SCHEDULE
+      .addCase(scheduleMeeting.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(scheduleMeeting.fulfilled, (state, action) => {
+        state.loading = false;
+        state.scheduledMeeting = action.payload || null;
+      })
+      .addCase(scheduleMeeting.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      // START
+      .addCase(startMeeting.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(startMeeting.fulfilled, (state, action) => {
+        state.loading = false;
+        state.meetingId = action.payload?.meetingId || null;
+        state.currentMeeting = action.payload || null;
+      })
+      .addCase(startMeeting.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
@@ -108,11 +154,7 @@ const meetingSlice = createSlice({
       })
       .addCase(joinMeeting.fulfilled, (state, action) => {
         state.loading = false;
-
-        state.meetingId = action.payload.meetingId;
-        state.currentMeeting = {
-          meetingId: action.payload.meetingId,
-        };
+        state.currentMeeting = action.payload || null;
       })
       .addCase(joinMeeting.rejected, (state, action) => {
         state.loading = false;
@@ -157,8 +199,8 @@ const meetingSlice = createSlice({
       })
       .addCase(fetchMeetingDetails.fulfilled, (state, action) => {
         state.loading = false;
-        state.currentMeeting = action.payload?.data || null;
-        state.meetingId = action.payload?.data?.meetingId || state.meetingId;
+        state.currentMeeting = action.payload || null;
+        state.meetingId = action.payload?.meetingId || state.meetingId;
       })
       .addCase(fetchMeetingDetails.rejected, (state, action) => {
         state.loading = false;
